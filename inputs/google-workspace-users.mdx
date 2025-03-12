@@ -1,0 +1,170 @@
+---
+title: Google Workspace Users Input
+description: Collect Google Workspace Users data from your Google Workspace Users API
+---
+
+## Prerequisites
+
+Before configuring this input, you need to set up a Google Cloud service account and grant it the necessary permissions in your Google Workspace environment. Follow these steps:
+
+1. **Create a Google Cloud Project**:
+    - Go to the [Google Cloud Console](https://console.cloud.google.com/).
+    - Create a new project or select an existing one.
+
+2. **Enable the Admin SDK API**:
+    - In your project, go to "APIs & Services" > "Library".
+    - Search for "Admin SDK API" and enable it.
+
+3. **Create a Service Account**:
+    - Go to "IAM & Admin" > "Service Accounts".
+    - Click "Create Service Account".
+    - Give it a name and description.
+    - For role, you don't need to grant any roles in Google Cloud.
+    - Click "Create and Continue", then "Done".
+
+4. **Generate a Key for the Service Account**:
+    - In the service account list, click on your new service account.
+    - Go to the "Keys" tab.
+    - Click "Add Key" > "Create new key".
+    - Choose JSON as the key type and click "Create".
+    - Save the downloaded JSON file securely.
+
+5. **Set up Domain-Wide Delegation**:
+    - Go to your [Google Workspace Admin Console](https://admin.google.com/).
+    - Navigate to Security -> Access and Data Control -> API Controls.
+    - In the "Domain-wide Delegation" section, click "Add new".
+    - For "Client ID", enter the service account's Client ID (found in the JSON key file).
+    - For scopes, enter: `https://www.googleapis.com/auth/admin.directory.user.readonly`
+    - Click "Authorize".
+
+6. **Create and Configure an Admin Account**:
+    - In the Google Workspace Admin Console, go to Users.
+    - Click on "Add new user" to create a new account, or select an existing user.
+    - Fill in the required information for the new user.
+    - After creating the user, click on the user's name to access their details.
+    - In the user details page, find the "Admin roles and privileges" section.
+    - Click on "Assign roles".
+    - Navigate to "Admin roles" under the Account section.
+    - Click "Create new role".
+    - Name the role (e.g., "User Data Reader").
+    - Under privileges, expand the "Users" section.
+    - Check the box for "Read" under "Users".
+    - Save the new role.
+    - Return to the user's details and assign this new custom role.
+
+## Configuration
+
+The Google Workspace Users Input is configured using the following settings:
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Email | string | Yes | The email address of the Google Workspace admin to impersonate for API calls. |
+| Cron | string | Yes | A cron expression defining how often to fetch user data. |
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| CredentialsJSON | string | Yes | Base64-encoded JSON credentials of the Google Cloud service account used for authentication. |
+| CustomerID | string | No | Google Workspace Customer ID. If provided, it will pull data on all users in all domains of your Google Workspace account. This should be set if Domain is not set. |
+| Domain | string | No | Domain name your users belong to. If provided, it will only pull user data for users that belong to that domain. This should be set if CustomerID is not set. |
+
+## API
+
+To send a `POST` request to create this Google Workspace Connector:
+
+```bash
+curl -X 'POST' \
+ '{base_url}/api/v2/{org_id}/inputs' \
+ -H 'accept: application/json' \
+ -H 'Authorization: Bearer {token}' \
+ -H 'Content-Type: application/json' \
+ -d '{
+ "config": {
+   "secrets": {
+     "credentials_json": {
+       "name": "Google Workspace Credentials",
+       "description": "Google service account credentials JSON",
+       "value": "credentials_json"
+     }
+   },
+   "settings": {
+     "email": "email_id",
+     "cron": "your_cron_for_scheduled_ingest"
+   }
+ },
+ "description": "input_description",
+ "name": "input_name",
+ "promise_id": "",
+ "type": "google-workspace-users"
+}'
+```
+
+## Functionality
+
+This input component performs the following actions:
+
+1. Authenticates with Google Workspace using a service account and admin impersonation.
+2. Periodically fetches user data based on the provided cron schedule.
+3. Processes and publishes user data to the pipeline for further handling.
+
+## Best Practices
+
+1. **Service Account**: Use a dedicated service account for this input.
+2. **Least Privilege**: Grant only the necessary permissions to the service account.
+3. **Admin Impersonation**: Use a dedicated admin account for impersonation, preferably one with limited permissions.
+4. **Credential Security**: Keep the service account JSON key secure and never commit it to version control.
+5. **Regular Audits**: Periodically review the service account's access and the impersonated admin's permissions.
+6. **Cron Schedule**: Set an appropriate cron schedule based on your data freshness requirements and API quota limits.
+
+## Limitations
+
+- The input fetches user data in pages, with a maximum of 500 results per page (default Google API limit).
+- API quotas and limits apply as per Google Workspace Admin SDK guidelines.
+
+## Troubleshooting
+
+- For authentication errors, verify the service account credentials and Domain-Wide Delegation setup.
+- If encountering "permission denied" errors, check the impersonated admin's privileges.
+- If no data is being fetched, verify the CustomerID or Domain settings in your configuration.
+
+## Example Configuration
+
+```json
+{
+  "settings": {
+    "Email": "admin@yourdomain.com",
+    "Cron": "0 */6 * * *"
+  },
+  "secrets": {
+    "CredentialsJSON": "base64 encoded JSON credentials",
+    "CustomerID": "C01234567",
+    "Domain": "yourdomain.com"
+  }
+}
+```
+
+Ensure you replace `admin@yourdomain.com` with your actual admin email, adjust the cron schedule as needed, and provide the correct base64-encoded service account key. Set either CustomerID or Domain based on your requirements.
+
+Remember to keep your service account key confidential and never commit it to version control systems.
+
+## Custom Schema Handling
+
+If the source data doesn't align with any of the [OpenSecurityControlFramework (OSCF) schemas](https://github.com/ocsf), you can create a custom transformation using our JQ transform pipeline. For example:
+
+```jq
+{
+  metadata: {
+    schema_version: "1.0.0",
+    custom_framework: "my_framework"
+  },
+  controls: .[]
+}
+```
+
+For more information on JQ and how to write your own JQ transformations see the JQ docs [here](https://jqlang.github.io/jq/)
+
+If you believe this data source should be included in the standard OSCF schema set, please reach out to our team at [support@monad.com](mailto:support@monad.com). We're always looking to expand our coverage of security control frameworks based on community needs.
+

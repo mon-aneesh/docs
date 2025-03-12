@@ -1,0 +1,89 @@
+---
+title: Crowdstrike Users Info
+description: >
+    Collects user information from CrowdStrike, including user profiles and activity logs. This provides visibility into user activities and helps in detecting anomalous behavior
+---
+
+
+## Details
+Monad uses the `cron` field to run this input on specific intervals and returns all users, performing a full sync of data each time.
+## Prerequisites
+- Before you connect Monad to CrowdStrike, you need a Client ID and Client Secret. Log in to [falcon.crowdstrike.com](https://falcon.crowdstrike.com/login/) and under Support & Resources, click on 'API Client and Keys' to create your credentials.
+- Enter a Client Name, Description and API Scopes to define the API client. Ensure read roles for User Management are enabled.
+- Click **Done**.
+- Copy the ClientID and ClientSecret key. You'll need them when you set up the Monad connector.
+[setup documentation](https://docs.servicenow.com/bundle/washingtondc-security-management/page/product/secops-integration-sir/secops-integration-crowdstrike-falcon-insight/task/create-api-clients-and-keys.html)
+## Related Articles
+- [https://developer.crowdstrike.com/crowdstrike/reference/retrieveusersgetv1-3](https://developer.crowdstrike.com/crowdstrike/reference/retrieveusersgetv1-3)
+- [https://developer.crowdstrike.com/crowdstrike/reference/queryuserv1-3](https://developer.crowdstrike.com/crowdstrike/reference/queryuserv1-3)
+
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Cron | string | Yes | Cron string for scheduling tasks. Ex: '0 0 * * *' for daily execution at midnight. |
+| Cloud Type | string | No | Your cloud type for CrowdStrike. Ex: 'autodiscover', 'us-1', 'us-2', 'eu-1', 'us-gov-1'. |
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| Client ID | string | Yes | Client ID for the CrowdStrike API. This is required to authenticate requests. |
+| Client Secret | string | Yes | Client Secret for the CrowdStrike API. This is required to authenticate requests. |
+
+## API
+
+To send a `POST` request to create this Crowdstrike Connector:
+
+```bash
+curl -X 'POST' \
+ '{base_url}/api/v2/{org_id}/inputs' \
+ -H 'accept: application/json' \
+ -H 'Authorization: Bearer {token}' \
+ -H 'Content-Type: application/json' \
+ -d '{
+ "config": {
+   "secrets": {
+     "client_id": {
+       "name": "CrowdStrike Client ID",
+       "description": "CrowdStrike API client identifier",
+       "value": "your_crowdstrike_client_id"
+     },
+     "client_secret": {
+       "name": "CrowdStrike Client Secret",
+       "description": "CrowdStrike API client secret",
+       "value": "your_crowdstrike_client_secret"
+     }
+   },
+   "settings": {
+     "cron": "your_cron_for_scheduled_ingest"
+   }
+ },
+ "description": "input_description",
+ "name": "input_name",
+ "promise_id": "",
+ "type": "crowdstrike-users-info"
+}'
+```
+
+## Custom Schema Handling
+
+If the source data doesn't align with any of the [OpenSecurityControlFramework (OSCF) schemas](https://github.com/ocsf), you can create a custom transformation using our JQ transform pipeline. For example:
+
+```jq
+{
+  metadata: {
+    schema_version: "1.0.0",
+    custom_framework: "my_framework"
+  },
+  controls: .[]
+}
+```
+
+For more information on JQ and how to write your own JQ transformations see the JQ docs [here](https://jqlang.github.io/jq/)
+
+If you believe this data source should be included in the standard OSCF schema set, please reach out to our team at [support@monad.com](mailto:support@monad.com). We're always looking to expand our coverage of security control frameworks based on community needs.
+

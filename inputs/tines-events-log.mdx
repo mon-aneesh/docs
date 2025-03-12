@@ -1,0 +1,89 @@
+---
+title: Tines Events Log
+description: >
+  Retrieve a list of events from your Tines tenant.
+---
+
+## Details
+Monad uses the `since` filter on the [api](https://www.tines.com/api/events/list/) to determine which events to display. This field is updated every time a request to get events is successful with the last time a request to get events was initiated. If this was the first time requesting for events data, a full sync of the data is performed.
+
+## Prerequisites
+
+***Before you connect Monad to Tines, you need an API Key and a Tenant URL.*** 
+
+1. [Sign up for a Tines tenant to get a Tenant URL](https://login.tines.com/signup) if you aren't already a customer.
+2. Follow the instructions in the following link from Tines to generate an API Key to allow API access to event data - https://www.tines.com/api/authentication/
+
+## Related Articles
+
+[https://www.tines.com/api/events/list/](https://www.tines.com/api/events/list/)
+[https://www.tines.com/api/authentication/](https://www.tines.com/api/authentication/)
+
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Tenant URL | string | Yes | Unique URL for your Tines instance. |
+| Team ID | string | No | Filter by the given team. |
+| Story ID | string | No | Filter by the given story. |
+
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| API Key | string | Yes | API Key for the Tines API. This is required to authenticate requests. |
+
+## API
+
+To send a `POST` request to create this Tines Connector:
+
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "config": {
+    "secrets": {
+      "api_key": {
+       "name": "Tines API Key",
+       "description": "API key for Tines authentication",
+       "value": "tines_api_key"
+     }
+    },
+    "settings": {
+      "tenant_url": "https://dawn-water-5048.tines.com",
+      "team_id": "",
+      "story_id": ""
+    }
+  },
+  "description": "input_description",
+  "name": "input_name",
+  "promise_id": "",
+  "type": "tines-events-log"
+}'
+```
+
+## Custom Schema Handling
+
+If the source data doesn't align with any of the [OpenSecurityControlFramework (OSCF) schemas](https://github.com/ocsf), you can create a custom transformation using our JQ transform pipeline. For example:
+
+```jq
+{
+  metadata: {
+    schema_version: "1.0.0",
+    custom_framework: "my_framework"
+  },
+  controls: .[]
+}
+```
+
+For more information on JQ and how to write your own JQ transformations see the JQ docs [here](https://jqlang.github.io/jq/)
+
+If you believe this data source should be included in the standard OSCF schema set, please reach out to our team at [support@monad.com](mailto:support@monad.com). We're always looking to expand our coverage of security control frameworks based on community needs.
+

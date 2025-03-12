@@ -1,0 +1,111 @@
+---
+title: Microsoft Azure Activity Logs
+description: >
+  Collects and ingests records from the Azure activity logs API.
+---
+
+## Details
+
+The Microsoft Azure Activity Logs input allows you to collect and ingest activity logs from the Azure monitor API.
+
+## Prerequisites
+
+Before setting up the Microsoft Azure Activity Logs input, you need to:
+
+1. Have a Microsoft Account with an active Azure Subscription
+2. Create a Application with API Data.Read access to the Log Analytics API
+3. Reader permissions granted to the application from the Logs Analytics Workspace
+
+## Configuration
+
+### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Tenant ID | string | true | The tenant ID of the Azure AD application |
+| Subscription ID | string | false | The subscription ID of the Azure subscription |
+| Resource Group Name | string | false | The name of the resource group |
+| Resource URI | string | false | The URI of the resource |
+| Resource Provider | string | false | The provider of the resource |
+| Correlation ID | string | false | The correlation ID of the log |
+
+
+### Secrets
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Client ID | string | true | The client ID of the Azure AD application |
+| Client Secret | string | true | The client secret of the Azure AD application |
+
+## Setting up API Access
+
+1. Registering a new application
+    1. Open the [App Registration](https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade) page in the Azure portal.
+    2. Select New Registration
+    3. Add a name to the new registration
+    4. Click Register
+    5. Save the applications `Application (client) ID` and `Directory (tenant) ID`
+    6. Select Certificates and Secrets
+    7. Click link next to Client credentials
+    8. In "Client secrets" click "New client secret"
+    9. Add a name and expiration to the new secret
+    10. Save the client secret value
+2. Give application access to Log Analytics API
+    1. Click "API Permissions" on left sidebar
+    2. Click "Add Permission"
+    3. Click "Logs Analytics API"
+    4. Select "Delegated permissions"
+    5. Select "Data.Read"
+3. Grant access to your log analytics workspace
+    1. Navigate to the [log analytics workspace](https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.OperationalInsights%2Fworkspaces)
+    2. Select the workspace
+    3. Click "Access control (IAM)" on the left menu
+    4. Select "Add Role Assignment" from the "+ Add" menu
+    5. Select the `Reader` role and click Next
+    6. Click "Select members"
+    7. Search for the new application name and click Select
+    8. Click "Review + assign"
+    9. Confirm by clicking "Review + assign"
+
+## Related Articles
+
+- [Setting up an application](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/api/register-app-for-token?tabs=portal)
+- [Access to Log Analytics API](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/api/access-api?tabs=rest)
+
+## Config
+
+```json
+{
+  "secrets": {
+    "client_id": "<client id of application>",
+    "client_secret": "<client secret of application>"
+  },
+  "settings": {
+    "correlation_id": "",
+    "resource_group_name": "",
+    "resource_provider": "",
+    "resource_uri": "",
+    "subscription_id": "<subscription id>",
+    "tenant_id": "<tenant id of application>"
+  }
+}
+```
+
+## Custom Schema Handling
+
+If the source data doesn't align with any of the [OpenSecurityControlFramework (OSCF) schemas](https://github.com/ocsf), you can create a custom transformation using our JQ transform pipeline. For example:
+
+```jq
+{
+  metadata: {
+    schema_version: "1.0.0",
+    custom_framework: "my_framework"
+  },
+  controls: .[]
+}
+```
+
+For more information on JQ and how to write your own JQ transformations see the JQ docs [here](https://jqlang.github.io/jq/)
+
+If you believe this data source should be included in the standard OSCF schema set, please reach out to our team at [support@monad.com](mailto:support@monad.com). We're always looking to expand our coverage of security control frameworks based on community needs.
+

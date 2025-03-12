@@ -1,0 +1,97 @@
+---
+title: Slack Users
+description: >
+  Lists all users in a Slack team.
+---
+
+## Details
+Monad uses the `cron` field to schedule the input at specific intervals, returning all users across teams if no team ID is specified, or limiting the scope to a specific team if a team ID is provided. In both cases, a full data sync is performed each time.
+
+## Prerequisites
+- Before you connect Monad to Slack, you need an API token. 
+- Your API token needs to scoped to `users:read` to run this input connector.
+- To obtain an API Token, you need to have a slack app. 
+
+**To create a Slack app:**
+
+- On the Your [Apps page](https://api.slack.com/apps), select Create New App.
+- Select From scratch.
+- Enter your appropriate App Name. 
+- Select the Workspace where you'll be developing your app. You'll be able to distribute your app to other workspaces later if you choose.
+- Select Create App.
+
+**Configuring Permissions within your app**:
+
+- Within OAuth & Permissions, scroll down to Scopes.
+- Under Bot/User Token Scopes, select Add an OAuth Scope.
+- To allow connection of Monad to Slack for this input connector, add the `users:read` scope.
+
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Cron | string | Yes | Cron string for scheduling tasks. Ex: '0 0 * * *' for daily execution at midnight. |
+| Team ID | string | No | Team ID to filter user results by. |
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| Token | string | Yes | Authentication Token for the Slack API. This is required to authenticate requests. |
+
+## Related Articles
+
+[https://api.slack.com/methods/users.list](https://api.slack.com/methods/users.list)
+[https://api.slack.com/methods](https://api.slack.com/methods)
+
+## API
+
+To send a `POST` request to create this Slack Connector:
+
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "config": {
+    "secrets": {
+        "token": {
+         "name": "Slack Token",
+         "description": "Authentication token for Slack API",
+         "value": "<TOKEN>"
+       }
+    },
+    "settings": {
+      "cron": "<CRON_SCHEDULE>"
+    }
+  },
+  "description": "input_description",
+  "name": "<INPUT_NAME>",
+  "promise_id": "",
+  "type": "slack-users"
+}'
+```
+
+## Custom Schema Handling
+
+If the source data doesn't align with any of the [OpenSecurityControlFramework (OSCF) schemas](https://github.com/ocsf), you can create a custom transformation using our JQ transform pipeline. For example:
+
+```jq
+{
+  metadata: {
+    schema_version: "1.0.0",
+    custom_framework: "my_framework"
+  },
+  controls: .[]
+}
+```
+
+For more information on JQ and how to write your own JQ transformations see the JQ docs [here](https://jqlang.github.io/jq/)
+
+If you believe this data source should be included in the standard OSCF schema set, please reach out to our team at [support@monad.com](mailto:support@monad.com). We're always looking to expand our coverage of security control frameworks based on community needs.
+

@@ -1,0 +1,79 @@
+---
+title: Snyk Targets
+description: >
+  Fetches detailed information about specific entities within your organization that Snyk monitors for vulnerabilities. Collects data such as target IDs, creation dates, display names, and resource URLs
+---
+
+## Details
+Monad uses the `updated_after` filter on the [api](https://docs.snyk.io/snyk-api/reference/issues) to determine which issues to display. This field is updated every time a request to get issues is successful with the last time a request to get issues was initiated. If this was the first time requesting for issues, a full sync of the data is performed.
+## Prerequisites
+- You can follow the steps outlined in Snyk's documentation to create a [Snyk service account](https://docs.snyk.io/enterprise-configuration/service-accounts)
+- The role you will select depends on which Snyk level you are connecting at:
+- If connecting at the Snyk group level, select the Group Admin role.
+- If connecting at the Snyk organization level, select the Org Admin role.
+- For the name of the account, we recommend Monad Service.
+- Once you have successfully created the service account, be sure to copy the token that Snyk generates. Make sure to save this token to your secrets tool or password manager before you navigate away from the page, since it will not be displayed again.
+  [setup documentation](https://docs.snyk.io/snyk-admin/structure-account-for-high-application-performance/service-accounts)
+## Related Articles
+- [https://docs.snyk.io/snyk-api/reference/targets](https://docs.snyk.io/snyk-api/reference/targets)
+
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+None.
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| API Key | string | Yes | API Key for the Synk API. This is required to authenticate requests. |
+
+
+## API
+
+To send a `POST` request to create this Snyk Connector:
+
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "config": {
+    "secrets": {
+      "api_key": {
+       "name": "Snyk API Key",
+       "description": "API key for Snyk authentication",
+       "value": "snyk_api_key"
+     }
+    },
+    "settings": {}
+  },
+  "description": "input_description",
+  "name": "input_name",
+  "promise_id": "",
+  "type": "snyk-targets"
+}'
+```
+
+## Custom Schema Handling
+
+If the source data doesn't align with any of the [OpenSecurityControlFramework (OSCF) schemas](https://github.com/ocsf), you can create a custom transformation using our JQ transform pipeline. For example:
+
+```jq
+{
+  metadata: {
+    schema_version: "1.0.0",
+    custom_framework: "my_framework"
+  },
+  controls: .[]
+}
+```
+
+For more information on JQ and how to write your own JQ transformations see the JQ docs [here](https://jqlang.github.io/jq/)
+
+If you believe this data source should be included in the standard OSCF schema set, please reach out to our team at [support@monad.com](mailto:support@monad.com). We're always looking to expand our coverage of security control frameworks based on community needs.
+

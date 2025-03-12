@@ -1,0 +1,197 @@
+---
+title: Google BigQuery
+description: >
+  Load data from a BigQuery table using timestamp-based tracking and cron scheduling
+---
+
+# BigQuery Input
+
+The BigQuery Input allows you to read data from BigQuery tables or custom queries with support for both full and incremental sync modes.
+
+## Prerequisites
+
+### Setting up a Service Account
+
+1. Create a new service account:
+```bash
+# Set your project ID
+export PROJECT_ID="your-project-id"
+
+# Create the service account
+gcloud iam service-accounts create bigquery-reader \
+    --description="Service account for BigQuery data reading" \
+    --display-name="BigQuery Reader"
+```
+
+2. Grant the required permissions:
+```bash
+# Grant BigQuery Data Viewer role (for reading data)
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member="serviceAccount:bigquery-reader@$PROJECT_ID.iam.gserviceaccount.com" \
+    --role="roles/bigquery.dataViewer"
+
+# Grant BigQuery Job User role (for executing queries)
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member="serviceAccount:bigquery-reader@$PROJECT_ID.iam.gserviceaccount.com" \
+    --role="roles/bigquery.jobUser"
+```
+
+3. Create and save the service account key (credentials):
+```bash
+# Create and save the key file
+gcloud iam service-accounts keys create bigquery-reader-credentials.json \
+    --iam-account=bigquery-reader@$PROJECT_ID.iam.gserviceaccount.com
+```
+
+This creates a `bigquery-reader-credentials.json` file in your current directory. Use the contents of this file as the value for the `credentials_json` secret in your input configuration.
+
+Note: Keep this credentials file secure and never commit it to version control.
+
+## Configuration
+
+The BigQuery Input is configured using the following settings:
+
+### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| project | string | Yes | The Google Cloud Project ID where your BigQuery dataset is located |
+| dataset | string | Yes | The name of the BigQuery dataset containing your table |
+| table | string | No | The name of the table to read from (required if query is not provided) |
+| timestamp_column | string | No | Optional column for incremental loading. If not provided, full syncs will be performed |
+| query | string | No | Optional custom query to use instead of table (required if table is not provided) |
+| cron | string | Yes | Cron expression defining when to check for new data |
+
+### Secrets
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| credentials_json | text | Yes | The Google Cloud service account credentials in JSON format |
+
+## Features
+
+### Sync Modes
+- **Full Sync**: Reads all data from the table/query on each run
+- **Incremental Sync**: When timestamp_column is provided, only reads new or updated records
+- Automatically manages state between runs for incremental syncs
+
+### Query Support
+- Simple table queries with automatic schema detection
+- Custom SQL queries for complex data transformations
+- Wraps custom queries in CTEs for incremental loading
+
+### Efficient Data Reading
+- Uses BigQuery Query API for reliable data access
+- Automatic connection and retry handling
+- Supports both simple and complex queries
+
+## Best Practices
+
+1. **Choosing Sync Mode**
+   - Use full sync for small tables or when all data needs to be processed
+   - Use incremental sync for large tables or frequent updates
+   - Consider using incremental sync with timestamp for better performance
+
+2. **Query Optimization**
+   - Keep queries simple for better performance
+   - Test custom queries with small data sets first
+   - Consider cost implications of full vs incremental sync
+
+3. **Scheduling**
+   - Set cron schedule based on data update frequency
+   - Consider BigQuery's quotas and pricing
+   - Allow enough time between runs for processing
+
+## Example Configurations
+
+### Full Sync with Table
+```json
+{
+  "settings": {
+    "project": "my-project-123",
+    "dataset": "my_dataset",
+    "table": "my_table",
+    "cron": "0 */1 * * *"
+  },
+  "secrets": {
+    "credentials_json": {
+      "value": "{ your service account JSON here }"
+    }
+  }
+}
+```
+
+### Incremental Sync with Table
+```json
+{
+  "settings": {
+    "project": "my-project-123",
+    "dataset": "my_dataset",
+    "table": "my_table",
+    "timestamp_column": "updated_at",
+    "cron": "0 */1 * * *"
+  },
+  "secrets": {
+    "credentials_json": {
+      "value": "{ your service account JSON here }"
+    }
+  }
+}
+```
+
+## API Usage
+
+### Creating a BigQuery Input
+```bash
+curl -X 'POST' \
+ '{base_url}/api/v2/{org_id}/inputs' \
+ -H 'accept: application/json' \
+ -H 'Authorization: Bearer {token}' \
+ -H 'Content-Type: application/json' \
+ -d '{
+  "config": {
+    "settings": {
+      "project": "my-project-123",
+      "dataset": "my_dataset",
+      "table": "my_table",
+      "timestamp_column": "updated_at",
+      "query": "SELECT * FROM my_dataset.my_complex_view",
+      "cron": "0 */1 * * *"
+    },
+    "secrets": {
+      "credentials_json": {
+        "name": "BigQuery Reader Credentials",
+        "description": "Service account credentials for BigQuery access",
+        "value": "{ your service account JSON here }"
+      }
+    }
+  },
+  "description": "Production BigQuery Input",
+  "name": "production_bq_input",
+  "type": "bigquery"
+}'
+```
+
+## Troubleshooting
+
+Common issues and solutions:
+
+1. **Permission Denied**
+   - Verify service account has both bigquery.dataViewer and bigquery.jobUser roles
+   - Check project ID matches credentials
+   - Ensure dataset and table exist
+
+2. **Invalid Query**
+   - Test custom queries in BigQuery console first
+   - Verify column names and types
+   - Check for proper SQL syntax
+
+3. **Timestamp Column Issues**
+   - Verify column exists in table/query results
+   - Ensure column is TIMESTAMP type
+   - Check column name matches exactly
+
+4. **Performance Issues**
+   - Consider using incremental sync for large datasets
+   - Review query efficiency
+   - Check BigQuery usage quotas

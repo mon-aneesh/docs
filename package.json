@@ -1,0 +1,20 @@
+{
+  "name": "docs",
+  "version": "1.0.0",
+  "description": "Click on `Use this template` to copy the Mintlify starter kit. The starter kit contains examples including",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.8.2",
+    "https": "^1.0.0",
+    "typescript": "^5.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10"
+  }
+}

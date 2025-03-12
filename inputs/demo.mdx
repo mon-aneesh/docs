@@ -1,0 +1,42 @@
+---
+title: Demo
+description: >
+    Generates random events based on its configuration as test data for a pipeline.
+tags: [demo]
+---
+
+## Details
+This demo input connector generates simulated data from Okta System Logs / Tenable Assets / Tenable Vulnerabilities
+## Prerequisites
+- The Demo connector does not require any credentials, making it a straightforward plug-and-play connector.
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+None.
+
+#### Secrets
+
+None.
+
+## API
+
+To send a `POST` request to create this Demo Connector:
+
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "config": {
+    "secrets": {},
+    "settings": {}
+  },
+  "description": "input_description",
+  "name": "input_name",
+  "promise_id": "",
+  "type": "demo"
+}'

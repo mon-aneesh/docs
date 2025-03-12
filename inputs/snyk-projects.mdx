@@ -1,0 +1,82 @@
+---
+title: Snyk Projects
+description: >
+  Collects data for individual entities, including repositories, subdirectories, and container images. Fetches information on identified issues, remediation advice, and historical scan data for each project.
+---
+
+## Details
+Monad uses the `cron` field to run this input on specific intervals and returns all projects, performing a full sync of data each time.
+## Prerequisites
+- You can follow the steps outlined in Snyk's documentation to create a [Snyk service account](https://docs.snyk.io/enterprise-configuration/service-accounts)
+- The role you will select depends on which Snyk level you are connecting at:
+- If connecting at the Snyk group level, select the Group Admin role.
+- If connecting at the Snyk organization level, select the Org Admin role.
+- For the name of the account, we recommend Monad Service.
+- Once you have successfully created the service account, be sure to copy the token that Snyk generates. Make sure to save this token to your secrets tool or password manager before you navigate away from the page, since it will not be displayed again.
+  [setup documentation](https://docs.snyk.io/snyk-admin/structure-account-for-high-application-performance/service-accounts)
+## Related Articles
+- [https://docs.snyk.io/snyk-api/reference/projects](https://docs.snyk.io/snyk-api/reference/projects)
+
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Cron | string | Yes | Cron string for scheduling tasks. Ex: '0 0 * * *' for daily execution at midnight. |
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| API Key | string | Yes | API Key for the Snyk API. This is required to authenticate requests. |
+
+## API
+
+To send a `POST` request to create this Snyk Connector:
+
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "config": {
+    "secrets": {
+      "api_key": {
+       "name": "Snyk API Key",
+       "description": "API key for Snyk authentication",
+       "value": "snyk_api_key"
+     }
+    },
+    "settings": {
+      "cron": "your_cron_for_scheduled_ingest"
+    }
+  },
+  "description": "input_description",
+  "name": "input_name",
+  "promise_id": "",
+  "type": "snyk-projects"
+}'
+```
+
+## Custom Schema Handling
+
+If the source data doesn't align with any of the [OpenSecurityControlFramework (OSCF) schemas](https://github.com/ocsf), you can create a custom transformation using our JQ transform pipeline. For example:
+
+```jq
+{
+  metadata: {
+    schema_version: "1.0.0",
+    custom_framework: "my_framework"
+  },
+  controls: .[]
+}
+```
+
+For more information on JQ and how to write your own JQ transformations see the JQ docs [here](https://jqlang.github.io/jq/)
+
+If you believe this data source should be included in the standard OSCF schema set, please reach out to our team at [support@monad.com](mailto:support@monad.com). We're always looking to expand our coverage of security control frameworks based on community needs.
+

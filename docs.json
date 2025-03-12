@@ -1,7 +1,6 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "theme": "willow",
+  "name": "Monad",
   "colors": {
     "primary": "#16A34A",
     "light": "#07C983",
@@ -22,14 +21,116 @@
             ]
           },
           {
-            "group": "Essentials",
+            "group": "Inputs",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/settings",
-              "essentials/navigation",
-              "essentials/reusable-snippets"
+              {
+                "group": "Authentication & Identity",
+                "icon": "user-lock",
+                "pages": [
+                  "inputs/okta-apps",
+                  "inputs/okta-groups",
+                  "inputs/okta-systemlog",
+                  "inputs/okta-users",
+                  "inputs/microsoft-entra-id",
+                  "inputs/google-workspace-login-activity",
+                  "inputs/google-workspace-oauth-activity",
+                  "inputs/duo-security-auth-logs",
+                  "inputs/duo-security-admin-logs"
+                ]
+              },
+              {
+                "group": "Cloud & Infrastructure",
+                "icon": "cloud",
+                "pages": [
+                  "inputs/google-cloud-asset-inventory",
+                  "inputs/google-cloud-logs",
+                  "inputs/microsoft-azure-activity-logs",
+                  "inputs/cloudtrail",
+                  "inputs/microsoft-log-analytics-query",
+                  "inputs/s3",
+                  "inputs/snowflake",
+                  "inputs/snowflake-grants",
+                  "inputs/snowflake-users",
+                  "inputs/wiz-cloud-resource-inventory",
+                  "inputs/wiz-cloud-configuration-findings",
+                  "inputs/bigquery"
+                ]
+              },
+              {
+                "group": "Security & Monitoring",
+                "icon": "shield",
+                "pages": [
+                  "inputs/crowdstrike-device-details",
+                  "inputs/crowdstrike-detection-summaries",
+                  "inputs/crowdstrike-event-stream",
+                  "inputs/crowdstrike-login-session-details",
+                  "inputs/crowdstrike-vulnerabilities",
+                  "inputs/crowdstrike-role-info",
+                  "inputs/crowdstrike-actors-info",
+                  "inputs/crowdstrike-users-info",
+                  "inputs/endpoint-alerts",
+                  "inputs/wiz-issues",
+                  "inputs/wiz-vulnerabilities",
+                  "inputs/cisa-kev",
+                  "inputs/tenable-vulnerabilities",
+                  "inputs/tenable-assets",
+                  "inputs/github-advisory-db",
+                  "inputs/monad-logs"
+                ]
+              },
+              {
+                "group": "Code & Development",
+                "icon": "code",
+                "pages": [
+                  "inputs/github-audit-logs",
+                  "inputs/semgrep-chain-findings",
+                  "inputs/semgrep-code-findings",
+                  "inputs/semgrep-deployments",
+                  "inputs/semgrep-project-details",
+                  "inputs/semgrep-projects",
+                  "inputs/snyk-issues",
+                  "inputs/snyk-organizations",
+                  "inputs/snyk-projects",
+                  "inputs/snyk-targets",
+                  "inputs/socket-full-scans"
+                ]
+              },
+              {
+                "group": "Collaboration & Access",
+                "icon": "users",
+                "pages": [
+                  "inputs/slack-groups",
+                  "inputs/slack-users",
+                  "inputs/google-workspace-admin-activity",
+                  "inputs/google-workspace-device-activity",
+                  "inputs/google-workspace-drive-activity",
+                  "inputs/google-workspace-users",
+                  "inputs/jira-users",
+                  "inputs/jira-roles",
+                  "inputs/box-users",
+                  "inputs/box-events",
+                  "inputs/tailscale-users",
+                  "inputs/tailscale-devices"
+                ]
+              },
+              {
+                "group": "Database & Operations",
+                "icon": "database",
+                "pages": [
+                  "inputs/mongodb-proj-events",
+                  "inputs/mongodb-org-events",
+                  "inputs/tines-events-log",
+                  "inputs/monad-http"
+                ]
+              },
+              {
+                "group": "Demo",
+                "icon": "flask",
+                "pages": [
+                  "inputs/demo",
+                  "inputs/demo-custom"
+                ]
+              }
             ]
           }
         ]
@@ -56,23 +157,7 @@
       }
     ],
     "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Community",
-          "href": "https://mintlify.com/community",
-          "icon": "slack"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
+      "anchors": []
     }
   },
   "logo": {

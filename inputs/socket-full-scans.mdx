@@ -1,0 +1,67 @@
+---
+title: Socket Full Scans
+description: >
+ Stream all SBOM artifacts for full scans in an organization.
+---
+
+## Details
+Monad uses the Socket.dev API to fetch returns the latest, available alert data for artifacts in all full scans in your org. The `from` query parameter is applied to retrieve only the scans that were detected or updated after the last successful sync. If this is the first time connecting to the Socket.dev API, Monad performs a full sync of all possible scans.
+
+## Prerequisites
+- Before connecting Monad to Socket.dev, you need to obtain an API Key and access to an Org Slug, which is obtained by Installing Socket's GitHub app from https://socket.dev. These credentials allow access to Monad to fetch Full Scans data for you.
+- To access this connector, make sure your credentials have the `full-scans:list` and `repo:list` permissions.
+
+## Related Articles
+
+[https://github.com/apps/socket-security](https://github.com/apps/socket-security)
+[https://docs.socket.dev/reference/getorgfullscan](https://docs.socket.dev/reference/getorgfullscan)
+[https://docs.socket.dev/reference/getorgfullscanlist](https://docs.socket.dev/reference/getorgfullscanlist)
+[https://docs.socket.dev/reference/authentication](https://docs.socket.dev/reference/authentication)
+
+## Configuration
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Org Slug | string | Yes | The slug of your Socket.dev organization. |
+| Repo | string | No | A repository slug to filter full-scans by. |
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| API Key | string | Yes | Used for authentication of API requests. Requires the full-scans:list scope. |
+
+
+## API
+
+To send a `POST` request to create this Socket.dev Connector:
+
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'Accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "config": {
+      "secrets": {
+        "api_key": {
+          "name": "Socket API Key",
+          "description": "Socket.dev API Key",
+          "value": "<API_KEY>"
+        }
+      },
+      "settings": {
+        "org_slug": "<SOCKET_ORG_SLUG>",
+      }
+    },
+    "description": "<YOUR_INPUT_DESCRIPTION>",
+    "name": "<YOUR_INPUT_NAME>",
+    "promise_id": "",
+    "type": "socket-full-scans"
+  }'
+```
+
+

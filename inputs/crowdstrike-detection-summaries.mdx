@@ -1,0 +1,84 @@
+---
+title: Crowdstrike Detect Summaries
+description: >
+  Collects and summarizes detection events from CrowdStrike, providing insights into identified threats and their severity.
+---
+
+## Details
+Monad uses the `created_timestamp` as a part of the `filter` on the [api](https://developer.crowdstrike.com/crowdstrike/reference/querydetects-1) to determine what summaries to display. This field is updated every time a request to get detection summaries is successful with the last time a request to get summaries was initiated. If this was the first time requesting for detection summaries, a full sync of the data is performed.
+## Prerequisites
+- Before you connect Monad to CrowdStrike, you need a Client ID and Client Secret. Log in to [falcon.crowdstrike.com](https://falcon.crowdstrike.com/login/) and under Support & Resources, click on 'API Client and Keys' to create your credentials.
+- Enter a Client Name, Description and API Scopes to define the API client. Ensure read roles for Detections are enabled.
+- Click **Done**.
+- Copy the ClientID and ClientSecret key. You'll need them when you set up the Monad connector.
+[setup documentation](https://docs.servicenow.com/bundle/washingtondc-security-management/page/product/secops-integration-sir/secops-integration-crowdstrike-falcon-insight/task/create-api-clients-and-keys.html)
+## Related Articles
+- [https://developer.crowdstrike.com/crowdstrike/reference/getdetectsummaries-1](https://developer.crowdstrike.com/crowdstrike/reference/getdetectsummaries-1)
+- [https://developer.crowdstrike.com/crowdstrike/reference/querydetectionidsbyfilter-1](https://developer.crowdstrike.com/crowdstrike/reference/querydetectionidsbyfilter-1)
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Cloud Type | string | No | Your cloud type for CrowdStrike. Ex: 'autodiscover', 'us-1', 'us-2', 'eu-1', 'us-gov-1'. |
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| Client ID | string | Yes | Client ID for the CrowdStrike API. This is required to authenticate requests. |
+| Client Secret | string | Yes | Client Secret for the CrowdStrike API. This is required to authenticate requests. |
+
+## API
+
+To send a `POST` request to create this Crowdstrike Connector:
+
+```bash
+curl -X 'POST' \
+ '{base_url}/api/v2/{org_id}/inputs' \
+ -H 'accept: application/json' \
+ -H 'Authorization: Bearer {token}' \
+ -H 'Content-Type: application/json' \
+ -d '{
+ "config": {
+   "secrets": {
+     "client_id": {
+       "name": "CrowdStrike Client ID",
+       "description": "CrowdStrike API client identifier",
+       "value": "your_crowdstrike_client_id"
+     },
+     "client_secret": {
+       "name": "CrowdStrike Client Secret",
+       "description": "CrowdStrike API client secret",
+       "value": "your_crowdstrike_client_secret"
+     }
+   },
+   "settings": {}
+ },
+ "description": "input_description",
+ "name": "input_name",
+ "promise_id": "",
+ "type": "crowdstrike-detect-summaries"
+}'
+```
+
+## Custom Schema Handling
+
+If the source data doesn't align with any of the [OpenSecurityControlFramework (OSCF) schemas](https://github.com/ocsf), you can create a custom transformation using our JQ transform pipeline. For example:
+
+```jq
+{
+  metadata: {
+    schema_version: "1.0.0",
+    custom_framework: "my_framework"
+  },
+  controls: .[]
+}
+```
+
+For more information on JQ and how to write your own JQ transformations see the JQ docs [here](https://jqlang.github.io/jq/)
+
+If you believe this data source should be included in the standard OSCF schema set, please reach out to our team at [support@monad.com](mailto:support@monad.com). We're always looking to expand our coverage of security control frameworks based on community needs.
+

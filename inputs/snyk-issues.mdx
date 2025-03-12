@@ -1,0 +1,143 @@
+---
+title: Snyk Issues
+description: >
+  Collects security vulnerabilities and other risks identified by Snyk across your codebase, dependencies, and container images.
+---
+
+## Details
+Monad uses the `updated_after` filter on the [api](https://docs.snyk.io/snyk-api/reference/issues) to determine which issues to display. This field is updated every time a request to get issues is successful with the last time a request to get issues was initiated. If this was the first time requesting for issues, a full sync of the data is performed.
+
+## Prerequisites
+- You can follow the steps outlined in Snyk's documentation to create a [Snyk service account](https://docs.snyk.io/enterprise-configuration/service-accounts)
+- The role you will select depends on which Snyk level you are connecting at:
+- If connecting at the Snyk group level, select the Group Admin role.
+- If connecting at the Snyk organization level, select the Org Admin role.
+- For the name of the account, we recommend Monad Service.
+- Once you have successfully created the service account, be sure to copy the token that Snyk generates. Make sure to save this token to your secrets tool or password manager before you navigate away from the page, since it will not be displayed again.
+  [setup documentation](https://docs.snyk.io/snyk-admin/structure-account-for-high-application-performance/service-accounts)
+
+## Related Articles
+- [https://docs.snyk.io/snyk-api/reference/issues](https://docs.snyk.io/snyk-api/reference/issues)
+
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+None.
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| API Key | string | Yes | API Key for the Synk API. This is required to authenticate requests. |
+
+## API
+
+To send a `POST` request to create this Snyk Connector:
+
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "config": {
+    "secrets": {
+      "api_key": {
+       "name": "Snyk API Key",
+       "description": "API key for Snyk authentication",
+       "value": "snyk_api_key"
+     }
+    },
+    "settings": {}
+  },
+  "description": "input_description",
+  "name": "input_name",
+  "promise_id": "",
+  "type": "snyk-issues"
+}'
+```
+
+## OCSF Conversion
+
+The following JQ transformation converts Snyk Issues data to OCSF Version 1.1 compliant format. This conversion maps essential Snyk vulnerability data to standardized OCSF fields, facilitating better integration and analysis across security tools.
+
+The transformation is provided as a starting point and can be modified to accommodate specific needs:
+
+```jq
+{
+  class_uid: 2002, # Vulnerability Finding
+  category_uid: 2, # Findings
+  activity_id: 2, # Update
+  type_uid: 200202, # Vulnerability Finding: Update
+  time: (
+    (
+      .attributes.created_at
+      | split(".")[0] + "Z"
+      | fromdateiso8601
+    ) // 0
+  ),
+  severity_id: (
+    {
+      info: 1,
+      low: 2,
+      medium: 3,
+      high: 4,
+      critical: 5
+    }[.attributes.effective_severity_level] // 0
+  ),
+  finding_info: {
+    uid: .id,
+    title: .attributes.title,
+    type: .attributes.type,
+    status: .attributes.status,
+    created_time: (
+      (
+        .attributes.created_at
+        | split(".")[0] + "Z"
+        | fromdateiso8601
+      ) // 0
+    ),
+    updated_time: (
+      (
+        .attributes.updated_at
+        | split(".")[0] + "Z"
+        | fromdateiso8601
+      ) // 0
+    )
+  },
+  raw_data: (. | tostring),
+  metadata: {
+    product: {
+      name: "Snyk",
+      vendor_name: "Snyk"
+    },
+    version: "1.1.0"
+  },
+  vulnerabilities: [
+    {
+      uid: .attributes.problems[0].id,
+      name: .attributes.title,
+      severity: .attributes.effective_severity_level,
+      component: {
+        name: .attributes.coordinates[0].representations[0].dependency.package_name,
+        version: .attributes.coordinates[0].representations[0].dependency.package_version
+      }
+    }
+  ]
+}
+```
+
+### OCSF Mapping Details
+
+The transformation follows OCSF Version 1.1 specifications with the following key mappings:
+
+- **Class and Category**: Maps to OCSF Finding (2002) under Security Control category (2)
+- **Severity**: Converts Snyk severity levels to OCSF standard scale (0-4)
+- **Time Fields**: Standardizes all timestamps to Unix epoch format
+- **Finding Information**: Preserves essential Snyk issue details in OCSF-compliant structure
+- **Vulnerability Data**: Maps Snyk vulnerability details including affected components
+
+This transformation can be customized to include additional fields or modify existing mappings based on specific use cases while maintaining OCSF compliance.

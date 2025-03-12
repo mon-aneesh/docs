@@ -1,0 +1,166 @@
+---
+title: Semgrep Supply Chain Findings
+description: >
+  Collects and processes Semgrep Supply Chain Findings from your Semgrep organization.
+---
+
+### Details
+Monad uses the `since` filter on the [api](https://semgrep.dev/api/v1/docs/#tag/Finding/operation/semgrep_app.core_exp.findings.handlers.issue.openapi_list_recent_issues) to determine which findings to display. This field is updated every time a request to get findings is successful with the last time a request to get findings was initiated. If this was the first time requesting for findings, a full sync of the data is performed.
+### Prerequisites
+- Before you connect Monad to Semgrep, you need an API token. API tokens are scoped to include all code findings from a specific account in Semgrep.
+- Please make sure that your account is on [Semgrep Code Team tier](https://semgrep.dev/docs/usage-and-billing#integrations-and-notifications) to have access to the API endpoints.
+- To generate a new Semgrep API key,
+- Log in to Semgrep, and check to confirm which account you are using. If needed, switch to the account that you want to connect to Monad.
+- Click Settings > Tokens > Create new token.
+- In the dialog that appears, make sure that WebAPI is selected and Agent (CI) is deselected in the Token Scopes section: [Semgrep setup documentation](https://semgrep.dev/api/v1/docs/#section/Authentication)
+- In the Description, enter something like Monad Connector token so that it's clear later what this token is for.
+- Copy the Secrets Value (the token value) to a secure place so you can use it to set up the connector. Once you close this dialog, you cannot view the token value again. 
+### Related Articles
+- [https://semgrep.dev/docs/semgrep-appsec-platform/semgrep-api](https://semgrep.dev/docs/semgrep-appsec-platform/semgrep-api)
+
+#### Settings
+
+None.
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| API Key | string | Yes | API Key for the Semgrep API. This is required to authenticate requests. |
+
+## API
+
+To send a `POST` request to create this Semgrep Connector:
+
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "config": {
+    "secrets": {
+      "api_key": {
+         "name": "Semgrep API Key",
+         "description": "API key for Semgrep authentication",
+         "value": "semgrep_api_key"
+       }
+    },
+    "settings": {}
+  },
+  "description": "input_description",
+  "name": "input_name",
+  "promise_id": "",
+  "type": "semgrep-supply-chain-findings"
+}'
+```
+
+# OCSF Conversion
+
+The following JQ transformation converts Semgrep Code Finding data to OCSF Version 1.1.0 compliant format.
+
+## JQ Transformation
+```jq
+{
+  class_uid: 2002, # Vulnerability Finding
+  category_uid: 2, # Findings
+  type_uid: 200200, # Vulnerability Finding: Unknown
+  activity_id: 0, # Unknown
+  severity_id: (.severity | if . == "medium" then 2 else if . == "high" then 3 else if . == "critical" then 4 else 1 end end end),
+  time: (.created_at | sub("\\.[0-9]+"; "") | fromdateiso8601),
+  cloud: {
+    provider: "Unknown",
+    account: { name: .repository.name }
+  },
+  finding_info: {
+    uid: .id | tostring,
+    title: .rule_name,
+    desc: .rule_message,
+    first_seen_time: (.relevant_since | sub("\\.[0-9]+"; "") | fromdateiso8601)
+  },
+  vulnerabilities: [{
+    desc: .rule_message,
+    severity: .severity,
+    title: .rule_name,
+    vendor_name: "Semgrep",
+    first_seen_time: (.relevant_since | sub("\\.[0-9]+"; "") | fromdateiso8601),
+    last_seen_time: (.created_at | sub("\\.[0-9]+"; "") | fromdateiso8601),
+    cwe: {
+      uid: (.rule.cwe_names[0] | split("-")[1]),
+      caption: (.rule.cwe_names[0] | split(":")[1])
+    },
+    affected_code: [{
+      file: {
+        path: .location.file_path,
+        name: (.location.file_path | split("/")[-1]),
+        type_id: 0 #Unknown
+      },
+      start_line: .location.line,
+      end_line: .location.end_line
+    }],
+    references: .rule.owasp_names
+  }],
+  raw_data: (. | tostring),
+  metadata: {
+    version: "1.1.0",
+    product: {
+      vendor_name: "Semgrep",
+      name: "Semgrep"
+    }
+  }
+}
+```
+
+## OCSF Mapping Details
+
+The JQ transformation converts Semgrep Code Findings to OCSF Version 1.1.0 with the following key mappings:
+
+### Core Fields
+- **Class UID**: Set to 2002 (Vulnerability Finding)
+- **Category UID**: Set to 2 (Findings)
+- **Type UID**: Set to 200200 (Vulnerability Finding: Unknown)
+- **Activity ID**: Set to 0 (Unknown)
+- **Severity ID**: Mapped from Semgrep severity levels:
+    - critical → 4
+    - high → 3
+    - medium → 2
+    - others → 1 (Low)
+- **Time**: Extracted from `created_at` field with milliseconds stripped
+
+### Cloud Information
+- **Provider**: Set to "Unknown"
+- **Account Name**: Maps from repository name
+
+### Finding Information
+- **UID**: Finding ID converted to string
+- **Title**: Maps from rule name
+- **Description**: Maps from rule message
+- **First Seen Time**: Converted from `relevant_since` timestamp
+
+### Vulnerability Details
+- **Description**: Maps from rule message
+- **Severity**: Maps directly from Semgrep severity
+- **Title**: Maps from rule name
+- **Vendor Name**: Set to "Semgrep"
+- **Time Information**:
+    - First Seen: Converted from `relevant_since`
+    - Last Seen: Converted from `created_at`
+- **CWE Information**:
+    - UID: Extracted from first CWE name (after "-")
+    - Caption: Extracted from first CWE name (after ":")
+- **Affected Code**:
+    - File Path: Full file path
+    - File Name: Extracted from last segment of path
+    - Line Numbers: Start and end lines from location data
+- **References**: Maps from OWASP names in rule
+
+### Metadata
+- **Version**: Set to "1.1.0"
+- **Product**:
+    - Vendor name: "Semgrep"
+    - Name: "Semgrep"
+
+- ### Customization
+The transformation serves as a starting point and can be modified to accommodate specific requirements while maintaining OCSF compliance.
+The mapping prioritizes essential asset information and cloud provider detection while providing fallback values for optional fields.

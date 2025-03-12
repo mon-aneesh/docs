@@ -1,0 +1,272 @@
+---
+title: AWS Cloudtrail
+description: >
+  Collects and records account activity and API usage across your AWS infrastructure. 
+---
+
+## Details
+On initialization for each sync, Monad generates every account_id + region combination found in your logs bucket. This ensures that any new regions or accounts added are picked up automatically on the next run. During the first run, Monad pulls all CloudTrail logs. Subsequent syncs use the saved state for each AWS account_id + region combination to pull only the latest logs, minimizing duplicates unless an error occurred during the previous sync. Monad initiates async ingests for each partition combination, ensuring quick data ingestion and isolating errors to a single partition. Monad also checks the previous day's partition for new files to ensure no logs are left behind when CloudTrail saves its final logs for the day
+
+## Prerequisites
+- You must create a role that monad can assume that is granted permission to access the bucket you are storing your data in.
+- Below is a quick run down of the trust relationship and permissions required for your role.
+- You must have a CloudTrail logs bucket configured.
+- Example Trust relationship:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": [
+          "arn:aws:iam::339712996529:role/monad-app"
+        ]
+      },
+      "Action": [
+        "sts:AssumeRole",
+        "sts:TagSession"
+      ]
+    }
+  ]
+}
+```
+- The above trust relationship allows the monad-app role on our end to assume your newly created role.
+- The externalId condition allows only sts calls that also pass the externalID parameter. Monad will pass your organization_id as the externalId.
+- Ensure your role has access to your S3 bucket via the GetObject and ListBucket actions.
+- Example permission:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::{bucket_name}"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::{bucket_name}/*"
+    }
+  ]
+}
+```
+[setup documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-cloudtrail-logging-for-s3.html)
+
+### Related Articles
+- [https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-log-file-examples.html](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-log-file-examples.html)
+- [https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-record-contents.html](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-record-contents.html)
+
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Region | string | Yes | The region of the S3 bucket. |
+| Bucket | string | Yes | The name of the S3 bucket. |
+| Prefix | string | No | Prefix of the S3 object keys to read. If your CloudTrail logs are at the standard location (starting with "AWSLogs/") at the root of the bucket, leave this field blank. Only specify a prefix if your CloudTrail logs are stored in a non-default location within your bucket. |
+| Role ARN | string | Yes | The ARN of the role to assume to access the bucket. |
+
+#### Secrets
+
+None.
+
+## API
+
+To send a `POST` request to create this Cloudtrail Connector:
+
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "config": {
+    "secrets": {},
+    "settings": {
+      "region": "region",
+      "bucket": "bucket",
+      "prefix": "prefix",
+      "role_arn": "role_arn"
+    }
+  },
+  "description": "input_description",
+  "name": "input_name",
+  "promise_id": "",
+  "type": "cloudtrail"
+}'
+```
+
+## OCSF Conversion
+
+The following JQ transformation converts AWS CloudTrail data to OCSF Version 1.1 compliant format. This conversion maps essential CloudTrail activity data to standardized OCSF fields, facilitating better integration and analysis across security tools.
+
+The transformation is provided as a starting point and can be modified to accommodate specific needs:
+
+```jq
+{
+  category_uid: 6, # Application Activity
+  class_uid: 6003, # API Activity
+  type_uid: 600300, # API Activity: Unknown
+  activity_id: 03, # Update
+  severity_id: 0, # Unkown
+  
+  time: (.eventTime | fromdateiso8601),
+  time_dt: .eventTime,
+  
+  actor: {
+    user: {
+      name: .userIdentity.userName,
+      type: .userIdentity.type,
+      account: {
+        name: .userIdentity.accountId,
+        type: "AWS",
+        uid: .userIdentity.principalId
+      }
+    }
+  },
+  
+  api: {
+    operation: .eventName,
+    service: {
+      name: .eventSource,
+      uid: .eventSource
+    },
+    request: {
+      uid: .requestID,
+      params: .requestParameters
+    },
+    response: {
+      result: .responseElements,
+      error: (.errorCode // ""),
+      error_message: (.errorMessage // "")
+    }
+  },
+  
+  cloud: {
+    provider: "AWS",
+    region: .awsRegion,
+    account: {
+      name: .recipientAccountId,
+      uid: .recipientAccountId
+    }
+  },
+  
+  src_endpoint: {
+    ip: .sourceIPAddress,
+    type: "IPv4",
+    type_id: 0
+  },
+  
+  status_id: (if .errorCode != null then 1 else 0 end),
+  status: (if .errorCode != null then "Failure" else "Success" end),
+  
+  resources: (
+    if .resources then
+      [.resources[] | {
+        type: (.resourceType // "Resource"),
+        uid: .resourceName,
+        name: .resourceName,
+        details: {
+          type: .resourceType,
+          arn: .ARN
+        }
+      }]
+    else []
+    end
+  ),
+  
+  metadata: {
+    version: "1.1.0",
+    product: {
+      name: "CloudTrail",
+      vendor_name: "AWS"
+    }
+  }
+}
+```
+
+### OCSF Mapping Details
+
+The transformation follows OCSF Version 1.1 specifications with the following key mappings:
+
+#### Core Fields
+- **category_uid**: Fixed value of 6 (API Activity)
+- **class_uid**: Fixed value of 6003 (API Activity)
+- **type_uid**: Set to 600303 API Activity: Update
+- **activity_id**: Set to 0 as CloudTrail events don't map directly to OCSF activity IDs
+- **severity_id**: Set to 0 as CloudTrail doesn't provide native severity levels
+
+#### Time and Actor Information
+- **time**: Converts CloudTrail's ISO8601 timestamp to Unix epoch using `fromdateiso8601`
+- **time_dt**: Preserves original ISO8601 timestamp from CloudTrail
+- **actor.user**: Maps IAM identity information including:
+    - name: Maps from userIdentity.userName
+    - type: Maps from userIdentity.type
+    - account: Contains AWS account details from userIdentity
+
+#### API and Cloud Context
+- **api**: Captures API operation details:
+    - operation: Maps from eventName
+    - service: Contains service name and ID from eventSource
+    - request/response: Preserves full request and response details
+- **cloud**: Contains AWS-specific context:
+    - provider: Fixed as "AWS"
+    - region: Maps from awsRegion
+    - account: Contains recipient account details
+
+#### Resource Handling
+- **resources**: Uses a generic handler to capture all resource types:
+    - Processes the CloudTrail resources array
+    - Preserves resource type, name, and ARN
+    - Handles null/missing resources gracefully
+    - Maintains consistent structure across all AWS resource types
+
+#### Metadata
+- **metadata**: Contains OCSF and product information:
+    - version: Fixed as "1.1.0" per OCSF specification
+    - product.name: Fixed as "CloudTrail"
+    - product.vendor_name: Fixed as "AWS"
+    - product.feature.name: Dynamically set to either "Data" or "Management"
+
+### Important Notes on OCSF Field Mapping
+
+Several OCSF fields require special consideration when mapping from CloudTrail:
+
+1. **Event Classification (category_uid, class_uid)**
+    - All CloudTrail events are classified as API Activity
+    - This is consistent across Management, Lambda Data, and S3 Data events
+    - No need for complex classification logic
+
+2. **Feature Name Determination**
+    - Set to "Data" for:
+        - Events where userIdentity.type is "AWSService"
+        - Events involving Lambda or S3 resources (detected via ARN patterns)
+    - Set to "Management" for all other events
+
+3. **Status Handling**
+    - status_id: 0 for success, 1 for failure
+    - status: Maps directly from presence/absence of errorCode
+    - Includes error messages when available
+
+4. **Resource Handling**
+    - Uses generic resource handling to support all AWS resource types
+    - Maintains consistent structure regardless of resource type
+    - Gracefully handles missing or null resource information
+
+5. **Optional Enhancements**
+   Consider these potential improvements based on your needs:
+    - Add severity mapping based on event characteristics
+    - Implement activity type classification based on event patterns
+    - Add custom resource type normalization
+    - Include additional context fields from CloudTrail
+
+This transformation provides a foundation for CloudTrail to OCSF conversion. While it handles the core requirements,
+you can extend and customize it to address your specific security monitoring and compliance needs while maintaining OCSF compliance.
+
+**NOTE:** this transformation does NOT work with Cloudtrail Logs Insights.

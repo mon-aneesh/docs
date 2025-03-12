@@ -1,0 +1,81 @@
+---
+title: Snowflake Grants
+description: >
+  Lists all access control privileges that have been explicitly granted to roles, users, and shares.
+---
+
+
+## Details
+Monad uses the `cron` field to schedule the input at specific intervals, returning all users across the account in each sync. 
+
+## Prerequisites
+
+1. You must have a snowflake account and access to creating a service account user, create a role and assign it.
+2. Monad uses key pair authentication you can follow the Snowflake docs on how to set this up [here](https://docs.snowflake.com/en/user-guide/key-pair-auth). Be sure to have your private and public keys handy.
+3. Create a new snowflake service account user with the following command
+```sql
+CREATE USER monad_service_account
+    COMMENT = 'Service account for monad snowflake output'
+    type = 'service'
+    RSA_PUBLIC_KEY='Your RSA Public Key';
+```
+4. We need to create a new role for this service account.
+```sql
+-- Create a custom role for the service account
+CREATE ROLE monad_service_account_role;
+
+-- Grant the role to the service account
+GRANT ROLE monad_service_account_role TO USER monad_service_account;
+```
+
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Cron | string | Yes | Cron string for scheduling tasks. Ex: '0 0 * * *' for daily execution at midnight. |
+| Account | string | Yes | The unique identifier for your Snowflake account, typically in the form of 'organization-account_name' |
+| User | string | Yes | The username of the Snowflake account used to establish the connection |
+| role | string | Yes | The name of the role the service account user will use |
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| Private Key | string | Yes | The RSA private key used to authenticate |
+| Password | string | Yes | Snowflake password used to authenticate |
+
+**Note:** One out of Private Key and Password can be used to authenticate with this input.
+
+
+## API
+
+To send a `POST` request to create this Semgrep Connector:
+
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "config": {
+    "secrets": {
+      "private_key": "<private_key>",
+      "password": "<password>"
+    },
+    "settings": {
+      "cron": "<cron_schedule>",
+      "account": "<your_account_name.snowflakecomputing.com>",
+      "user": "<your_username>",
+      "role": "<account_role>"
+    }
+  },
+  "description": "<input_description>",
+  "name": "<input_name>",
+  "promise_id": "",
+  "type": "snowflake-grants"
+}'
+```

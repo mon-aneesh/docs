@@ -1,0 +1,99 @@
+---
+title: Wiz Cloud Resource Inventory 
+description: >
+  Collects and processes Cloud Resource Inventory logs from the Wiz API.
+---
+
+## Details
+Monad connects to the Wiz API to collect cloud resource inventory data. The connector operates in two modes:
+
+- Initial Report: When running for the first time, the connector creates a new Cloud Resource Inventory report. It waits for the report generation to complete, and processes the resulting CSV data and sends it forward.
+
+- Incremental Sync Mode: For subsequent runs, the connector fetches all data **since** the report was first generated, and retrieves only cloud resources that were updated after this timestamp using the updatedAt filter on the Wiz API.
+
+The connector also supports filtering by cloud platform and entity type.
+
+## Prerequisites
+- Before connecting Monad to Wiz, you need to obtain API credentials (Client ID and Client Secret). These credentials allow access to the Wiz API to fetch cloud resource inventory.
+- Ensure that your Wiz credentials have the appropriate permissions to access the necessary API endpoints. To access Cloud resource inventory specifically, make sure your credentials have `create:reports`, `update:reports` and `read:resources`
+
+## Related Articles
+- [https://win.wiz.io/reference/quickstart](https://win.wiz.io/reference/quickstart)
+- [https://win.wiz.io/reference/create-vuln-report](https://win.wiz.io/reference/create-vuln-report)
+- [https://win.wiz.io/reference/vulnerability-finding](https://win.wiz.io/reference/vulnerability-finding)
+- [https://win.wiz.io/reference/update-vulnerabilities-report](https://win.wiz.io/reference/update-vulnerabilities-report)
+
+
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Endpoint URL | string | Yes | Endpoint URL to connect to Wiz. |
+| Cloud Platform | Array | No | Filter cloud resources by cloud platform. |
+| Entity Type | Array | Yes | The cloud-managed resource object(s) to generate a report for. |
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| Client ID | string | Yes | Client ID for the CrowdStrike API. This is required to authenticate requests. |
+| Client Secret | string | Yes | Client Secret for the CrowdStrike API. This is required to authenticate requests. |
+
+## API
+
+To send a `POST` request to create this Wiz Connector:
+
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "config": {
+    "settings": {
+        "endpoint_url": "https://api.us17.app.wiz.io/graphql",
+        "cloudPlatform": [],
+        "entityType": ["VIRTUAL_MACHINE"]            
+    },
+    "secrets": {
+      "client_id": {
+       "name": "Wiz Client ID",
+       "description": "Client ID for Wiz authentication",
+       "value": "your_client_id"
+     },
+     "client_secret": {
+       "name": "Wiz Client Secret",
+       "description": "Client secret for Wiz authentication",
+       "value": "your_client_secret"
+     }        
+    }
+  },
+  "description": "input_description",
+  "name": "input_name",
+  "promise_id": "",
+  "type": "wiz-cloud-resource-inventory"
+}'
+```
+
+## Custom Schema Handling
+
+If the source data doesn't align with any of the [OpenSecurityControlFramework (OSCF) schemas](https://github.com/ocsf), you can create a custom transformation using our JQ transform pipeline. For example:
+
+```jq
+{
+  metadata: {
+    schema_version: "1.0.0",
+    custom_framework: "my_framework"
+  },
+  controls: .[]
+}
+```
+
+For more information on JQ and how to write your own JQ transformations see the JQ docs [here](https://jqlang.github.io/jq/)
+
+If you believe this data source should be included in the standard OSCF schema set, please reach out to our team at [support@monad.com](mailto:support@monad.com). We're always looking to expand our coverage of security control frameworks based on community needs.
+

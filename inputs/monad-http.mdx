@@ -1,0 +1,117 @@
+---
+title: Monad Http
+description: The Http input allows data to be sent to the Monad API and routed to any pipeline.
+---
+
+## Details
+The HTTP input is an extremely flexible method for ingesting data into the Monad platform.  By creating an Http input, users can publish any data they wish to a pipeline without needing to have a specifically implemented input to support that data.  This allows data to be sent via any programming language or even via curl as a starting point.
+
+
+
+## Prerequisites
+  There are no Prerequisites to start using the Http input.  Simply create an Http Input and attach it to a pipeline.
+
+## Sending data
+  Sending data to an Http input requires sending a POST request to the Monad API with the correct headers and in the proper json format. 
+
+In order to route data properly to the correct pipeline, the `orgID` and `pipelineID` of your pipeline is required.  These can be found on your organizations page, and pipeline page, respectively
+
+The body of the request requires that records be put in the `data` key in an array of json objects for each record.
+
+Note:  when including multiple records, the format requires a valid json payload, including comma separated values for records
+
+#### Single record
+```bash
+{
+  "data":[
+    {}
+  ]
+}
+```
+#### Multiple Records
+```bash
+{
+  "data":[
+    {},
+    {},
+    {}
+  ]
+}
+```
+
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+None.
+
+#### Secrets
+
+None.
+
+## API
+
+To send a `POST` request to create this Monad HTTP Connector:
+
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "config": {
+    "secrets": {},
+    "settings": {}
+  },
+  "description": "input_description",
+  "name": "input_name",
+  "promise_id": "",
+  "type": "monad-logs"
+}'
+```
+
+### Python Example
+```bash
+import requests
+import json
+
+url = 'https://app.monad.com/api/v2/http/send'
+headers = {
+    'accept': 'application/json',
+    'Content-Type': 'application/json',
+    'Authorization': my_bearer_token,
+    'Monad-Org-Id': my_org_ID,
+    'Monad-Pipeline-Id': my_pipeline_id
+}
+data = {
+    'data': [
+        {
+            'dummy-key': 'dummy-data'
+        }
+    ]
+}
+
+response = requests.post(url, headers=headers, json=data)
+print(json.dumps(response.json(), indent=2))
+```
+
+## Custom Schema Handling
+
+If the source data doesn't align with any of the [OpenSecurityControlFramework (OSCF) schemas](https://github.com/ocsf), you can create a custom transformation using our JQ transform pipeline. For example:
+
+```jq
+{
+  metadata: {
+    schema_version: "1.0.0",
+    custom_framework: "my_framework"
+  },
+  controls: .[]
+}
+```
+
+For more information on JQ and how to write your own JQ transformations see the JQ docs [here](https://jqlang.github.io/jq/)
+
+If you believe this data source should be included in the standard OSCF schema set, please reach out to our team at [support@monad.com](mailto:support@monad.com). We're always looking to expand our coverage of security control frameworks based on community needs.
+

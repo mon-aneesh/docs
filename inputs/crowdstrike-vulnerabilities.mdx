@@ -1,0 +1,321 @@
+---
+title: Crowdstrike Vulnerabilities
+description: >
+  Retrieves vulnerability data and associated metadata for assets from Crowdstrike Falcon Spotlight, including details like CVE identifiers, CVSS scores, descriptions, solution information, and affected systems.
+---
+
+## Details
+Monad uses the `created_timestamp` within the `filter` on the [api](https://developer.crowdstrike.com/crowdstrike/reference/getvulnerabilities-3) to determine what vulnerabilities to display. This field is updated every time a request to get vulnerabilities is successful with the last time a request to get vulnerabilities was initiated. If this was the first time requesting for vulnerabilities, a full sync of the data is performed.
+
+## Prerequisites
+- Before you connect Monad to CrowdStrike, you need a Client ID and Client Secret. Log in to [falcon.crowdstrike.com](https://falcon.crowdstrike.com/login/) and under Support & Resources, click on 'API Client and Keys' to create your credentials.
+- Enter a Client Name, Description and API Scopes to define the API client. Ensure read roles for User Management are enabled.
+- Click **Done**.
+- Copy the ClientID and ClientSecret key. You'll need them when you set up the Monad connector.
+[setup documentation](https://docs.servicenow.com/bundle/washingtondc-security-management/page/product/secops-integration-sir/secops-integration-crowdstrike-falcon-insight/task/create-api-clients-and-keys.html)
+## Related Articles
+- [https://developer.crowdstrike.com/crowdstrike/reference/retrieveusersgetv1-3](https://developer.crowdstrike.com/crowdstrike/reference/retrieveusersgetv1-3)
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Cloud Type | string | No | Your cloud type for CrowdStrike. Ex: 'autodiscover', 'us-1', 'us-2', 'eu-1', 'us-gov-1'. |
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| Client ID | string | Yes | Client ID for the CrowdStrike API. This is required to authenticate requests. |
+| Client Secret | string | Yes | Client Secret for the CrowdStrike API. This is required to authenticate requests. |
+
+## API
+
+To send a `POST` request to create this Crowdstrike Connector:
+
+```bash
+curl -X 'POST' \
+ '{base_url}/api/v2/{org_id}/inputs' \
+ -H 'accept: application/json' \
+ -H 'Authorization: Bearer {token}' \
+ -H 'Content-Type: application/json' \
+ -d '{
+ "config": {
+   "secrets": {
+     "client_id": {
+       "name": "CrowdStrike Client ID",
+       "description": "CrowdStrike API client identifier",
+       "value": "your_crowdstrike_client_id"
+     },
+     "client_secret": {
+       "name": "CrowdStrike Client Secret",
+       "description": "CrowdStrike API client secret",
+       "value": "your_crowdstrike_client_secret"
+     }
+   },
+   "settings": {}
+ },
+ "description": "input_description",
+ "name": "input_name",
+ "promise_id": "",
+ "type": "crowdstrike-vulnerabilities"
+}'
+```
+
+# OCSF Conversion
+
+The following JQ transformation converts Crowdstrike Vulnerability data to OCSF Version 1.1 compliant format.
+
+## JQ Transformation
+
+```jq
+# Helper function to safely convert timestamp
+def safe_timestamp:
+  if . then (. | fromdateiso8601) else null end;
+
+# Helper function to convert Crowdstrike severity to OCSF severity_id
+def severity_to_id:
+  if . == "CRITICAL" then 5
+  elif . == "HIGH" then 4 
+  elif . == "MEDIUM" then 3
+  elif . == "LOW" then 2
+  else 99  # Unknown
+  end;
+
+# Helper function to convert status to OCSF status_id
+def status_to_id:
+  if . == "open" then 1
+  elif . == "closed" then 2
+  elif . == "in_progress" then 3
+  else 99  # Unknown
+  end;
+
+# Main transformation
+{
+  # Required OCSF Fields
+  "activity_id": 1,  # Detection
+  "category_uid": 2, # Findings
+  "class_uid": 2002, # Vulnerability Finding class
+  "type_uid": 200201, # Vulnerability Finding type
+  
+  # Timestamps
+  "time": (.created_timestamp | safe_timestamp),
+  
+  # Severity mapping
+  "severity_id": ((.cve.severity // "UNKNOWN") | severity_to_id),
+  "severity": (.cve.severity // "UNKNOWN"),
+  
+  # Finding Info
+  "finding_info": {
+    "title": (.vulnerability_id // "UNKNOWN"),
+    "uid": (.id // "UNKNOWN"),
+    "desc": (.cve.description // "No description available"),
+    "created_time": (.created_timestamp | safe_timestamp),
+    "modified_time": (.updated_timestamp | safe_timestamp)
+  },
+
+  # Vulnerabilities array
+  "vulnerabilities": [
+    {
+      "title": (.vulnerability_id // "UNKNOWN"),
+      "desc": (.cve.description // "No description available"),
+      "severity": (.cve.severity // "UNKNOWN"),
+      "cve": {
+        "uid": (.cve.id // "UNKNOWN"),
+        "desc": (.cve.description // "No description available"),
+        "cvss": [
+          {
+            "version": "3.1",
+            "base_score": (.cve.base_score // 0),
+            "vector_string": (.cve.vector // "UNKNOWN")
+          }
+        ],
+        "references": (.cve.vendor_advisory // []),
+        "modified_time": (.updated_timestamp | safe_timestamp)
+      },
+      "remediation": {
+        "desc": ((.remediation.entities // []) | map(.action // "") | select(length > 0) | join("; ")),
+        "references": ((.remediation.entities // []) | map(.link // "") | select(length > 0)),
+        "kb_articles": ((.remediation.entities // []) | map(.reference // "") | select(length > 0))
+      },
+      "first_seen_time": (.created_timestamp | safe_timestamp),
+      "last_seen_time": (.updated_timestamp | safe_timestamp),
+      "is_exploit_available": ((.cve.exploit_status // 0) == 30)
+    }
+  ],
+  raw_data: (. | tostring),
+  # Metadata
+  "metadata": {
+    "version": "1.1.0",
+    "product": {
+      "name": "Crowdstrike Spotlight",
+      "vendor_name": "Crowdstrike",
+      "version": "1.0"
+    },
+    "profiles": ["vulnerability"],
+    "uid": (.id // "UNKNOWN")
+  },
+
+  # Optional Fields
+  "confidence": (.cve.exprt_rating // "UNKNOWN"),
+  "confidence_id": (
+    if .cve.exprt_rating == "CRITICAL" then 2
+    elif .cve.exprt_rating == "HIGH" then 2
+    elif .cve.exprt_rating == "MEDIUM" then 1
+    elif .cve.exprt_rating == "LOW" then 0
+    else 99  # Unknown
+    end
+  ),
+  "status": (.status // "unknown"),
+  "status_id": ((.status // "unknown") | status_to_id),
+
+  # Resource Details
+  "resource": {
+    "type": "host",
+    "name": (.host_info.hostname // "unknown"),
+    "uid": (.aid // "unknown"),
+    "criticality": (.host_info.asset_criticality // "Unassigned"),
+    "group": {
+      "name": ((.host_info.groups // []) | map(.name // "") | select(length > 0) | join(", "))
+    },
+    "labels": [
+      (.host_info.os_version // "unknown"),
+      (.host_info.platform // "unknown"),
+      (.host_info.product_type_desc // "unknown")
+    ]
+  },
+
+  # Cloud context if available
+  "cloud": (
+    if (.host_info.service_provider // null) != null then {
+      "provider": (.host_info.service_provider // "unknown"),
+      "account_uid": (.host_info.service_provider_account_id // "unknown"),
+      "instance_uid": (.host_info.instance_id // "unknown")
+    } else null
+    end
+  )
+}
+```
+
+## OCSF Mapping Details
+
+### Helper Functions
+
+1. **safe_timestamp**
+    - Safely converts ISO8601 timestamps to Unix epoch
+    - Returns null for any invalid or missing timestamps
+    - Used consistently across all timestamp fields
+
+2. **severity_to_id**
+    - Maps Crowdstrike severity levels to OCSF enumerated values:
+        - CRITICAL → 5
+        - HIGH → 4
+        - MEDIUM → 3
+        - LOW → 2
+        - Others → 99 (Unknown)
+
+3. **status_to_id**
+    - Maps vulnerability status to OCSF enumerated values:
+        - open → 1
+        - closed → 2
+        - in_progress → 3
+        - Others → 99 (Unknown)
+
+### Core Fields
+
+- **Category UID**: 2 (Findings)
+- **Class UID**: 2002 (Vulnerability Finding)
+- **Activity ID**: 1 (Detection)
+- **Type UID**: 200201 (Vulnerability Finding Detection)
+- **Time**: Maps from created_timestamp, null if invalid/missing
+- **Severity**: Maps from CVE severity with "UNKNOWN" fallback
+
+### Finding Information
+
+- **Title**: Maps from vulnerability_id with "UNKNOWN" fallback
+- **UID**: Maps from record id with "UNKNOWN" fallback
+- **Description**: Maps from CVE description with "No description available" fallback
+- **Timestamps**:
+    - created_time: Maps from created_timestamp
+    - modified_time: Maps from updated_timestamp
+    - Returns null for invalid/missing timestamps
+
+### Vulnerabilities Array
+
+Each vulnerability entry contains:
+- Title and description from CVE data
+- Severity information with fallbacks
+- CVE details including:
+    - CVSS scoring (version 3.1)
+    - Base score (defaults to 0)
+    - Vector string
+    - References list
+- Remediation information:
+    - Combines multiple remediation actions
+    - Preserves KB articles and references
+    - Filters out empty/null values
+- Timestamp fields using safe conversion
+
+### Status and Confidence
+
+- **Status**: Maps from status field with "unknown" fallback
+- **Confidence**: Maps from exprt_rating with "UNKNOWN" fallback
+- Both use enumerated ID mappings with unknown (99) fallback
+
+### Resource Details
+
+- **Type**: Fixed as "host"
+- **Name**: Maps from hostname with "unknown" fallback
+- **UID**: Maps from aid with "unknown" fallback
+- **Criticality**: Maps from asset_criticality with "Unassigned" fallback
+- **Groups**: Combines all group names, filtering empty values
+- **Labels**: Array including:
+    - OS version
+    - Platform
+    - Product type
+      All with "unknown" fallbacks
+
+### Cloud Context
+
+Only included when service_provider exists, containing:
+- Provider name
+- Account UID
+- Instance UID
+  All fields have "unknown" fallbacks
+
+### Metadata
+
+- **Version**: Fixed at "1.1.0"
+- **Product Information**:
+    - Name: "Crowdstrike Spotlight"
+    - Vendor: "Crowdstrike"
+    - Version: "1.0"
+- **Profiles**: Fixed as ["vulnerability"]
+- **UID**: Maps from record id
+
+### Error Handling
+
+The transformation implements comprehensive error handling:
+
+1. **Timestamp Handling**
+    - No artificial timestamps created
+    - Explicit null for invalid/missing dates
+    - Consistent handling across all date fields
+
+2. **Missing Data**
+    - String fields: "UNKNOWN" or "unknown" fallbacks
+    - Numeric fields: 0 fallback
+    - Arrays: Empty array fallback
+    - Objects: Null fallback with conditional inclusion
+
+3. **Array Processing**
+    - Safe mapping with null element handling
+    - Filtering of empty/null values
+    - Join operations with empty string fallbacks
+
+4. **Object Safety**
+    - Null checks before accessing nested fields
+    - Default values for all required fields
+    - Conditional object inclusion

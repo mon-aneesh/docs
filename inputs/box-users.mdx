@@ -1,0 +1,87 @@
+---
+title: Box Users
+description: >
+  Returns a list of all users for the Enterprise along with their user_id, public_name, and login.
+---
+
+## Details
+Monad uses the `cron` field to run this input on specific intervals and returns all USERS, performing a full sync of data each time.
+
+## Prerequisites
+- Before you connect Monad to Box, you need access to a Box account, [Business plan or higher](https://www.box.com/pricing). **Note**: Purchasing just a business plan (lowest tier) limits your ability on parameters you can use for the Box users input. Read the configuration section for more details.
+- After purchasing an appropriate plan, you now need to obtain your Client ID, Client Secret, and Enterprise ID:
+  - Navigate to the Developer Console from your Box user dashboard (Requires Admin/Co-Admin Access to the enterprise)
+  - Create a Platform app (Custom app) if you don't have one with appropriate fields filled out from the Developer dashboard
+  - Retrieve your Enterprise ID from the 'General settings' by choosing the right app from the developer dashboard in the 'My Platform Apps' section.
+  - Go to the 'Configuration' after choosing the right app from the developer dashboard in the 'My Platform Apps' section, and scroll down to 'OAuth 2.0 Credentials' section, and setup 2FA if required, after which obtain your Client ID and Client Secret to connect Box to Monad.
+  - Ensure that the app has "App + Enterprise Access" from the Configuration tab.
+
+## Related Articles
+
+[https://developer.box.com/reference/get-users/](https://developer.box.com/reference/get-users/)
+[https://developer.box.com/reference/](https://developer.box.com/reference/)
+[https://developer.box.com/reference/resources/access-token/](https://developer.box.com/reference/resources/access-token/)
+
+
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Cron | string | Yes | Cron string for scheduling the ingest of your input. |
+| User Type | string | No | Limits the results to the kind of user specified. 'All' returns every kind of user for whom the login or name partially matches the filter_term. 'Managed' returns all managed and app users for whom the login or name partially matches the filter_term. 'External' returns all external users for whom the login matches the filter_term exactly. |
+| Filter Term | string | No | Limits the results to only users who's name or login start with the search term. |
+
+**Note**: If you have a business plan (lowest tier in Box), you would not have access to retrieving 'External' and 'All' user type data, and the input would fetch '403: Unauthorized' responses from the API. 
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| Client ID | string | Yes | Client ID for the Box API. This is required to authenticate requests. |
+| Client Secret | string | Yes | Client Secret for the Box API. This is required to authenticate requests. |
+| Enterprise ID | string | Yes | Enterprise ID for the Box API. This is required to authenticate requests. |
+
+## API
+
+To send a `POST` request to create this Box Connector:
+
+
+```bash
+curl -X 'POST' \
+ '{base_url}/api/v2/{org_id}/inputs' \
+ -H 'accept: application/json' \
+ -H 'Authorization: Bearer {token}' \
+ -H 'Content-Type: application/json' \
+ -d '{
+ "config": {
+   "secrets": {
+     "client_id": {
+       "name": "Box Client ID",
+       "description": "Box API client identifier",
+       "value": "<CLIENT_ID>"
+     },
+     "client_secret": {
+       "name": "Box Client Secret", 
+       "description": "Box API client secret",
+       "value": "<CLIENT_SECRET>"
+     },
+     "enterprise_id": {
+       "name": "Box Enterprise ID",
+       "description": "Box enterprise identifier",
+       "value": "<ENTERPRISE_ID>"
+     }
+   },
+   "settings": {
+         "cron":      "<CRON_STRING>",
+   }
+ },
+ "description": "<YOUR_INPUT_DESCRIPTION>",
+ "name": "<YOUR_INPUT_NAME>",
+ "promise_id": "",
+ "type": "box-users"
+}'
+```
+

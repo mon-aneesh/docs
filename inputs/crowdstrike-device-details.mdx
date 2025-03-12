@@ -1,0 +1,274 @@
+---
+title: Crowdstrike Device Details
+date: 2017-01-05
+description: >
+    Fetches detailed information about devices managed by CrowdStrike Falcon (Spotlight Vulnerability Management) using their API. 
+---
+
+## Details
+Monad uses the `cron` field to run on specific intervals and returns all device details, performing a full sync of data each time.
+## Prerequisites
+- Before you connect Monad to CrowdStrike, you need a Client ID and Client Secret. Log in to [falcon.crowdstrike.com](https://falcon.crowdstrike.com/login/) and under Support & Resources, click on 'API Client and Keys' to create your credentials.
+- Enter a Client Name, Description and API Scopes to define the API client. Ensure read roles for Hosts are enabled.
+- Click **Done**.
+- Copy the ClientID and ClientSecret key. You'll need them when you set up the Monad connector.
+[setup documentation](https://docs.servicenow.com/bundle/washingtondc-security-management/page/product/secops-integration-sir/secops-integration-crowdstrike-falcon-insight/task/create-api-clients-and-keys.html)
+## Related Articles
+- [https://developer.crowdstrike.com/crowdstrike/reference/getdevicedetailsv2-1](https://developer.crowdstrike.com/crowdstrike/reference/getdevicedetailsv2-1)
+- [https://developer.crowdstrike.com/crowdstrike/reference/querydevicesbyfilterscroll-1](https://developer.crowdstrike.com/crowdstrike/reference/querydevicesbyfilterscroll-1)
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Cron | string | Yes | Cron string for scheduling tasks. Ex: '0 0 * * *' for daily execution at midnight. |
+| Cloud Type | string | No | Your cloud type for CrowdStrike. Ex: 'autodiscover', 'us-1', 'us-2', 'eu-1', 'us-gov-1'. |
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| Client ID | string | Yes | Client ID for the CrowdStrike API. This is required to authenticate requests. |
+| Client Secret | string | Yes | Client Secret for the CrowdStrike API. This is required to authenticate requests. |
+
+## API
+
+To send a `POST` request to create this Crowdstrike Connector:
+
+```bash
+curl -X 'POST' \
+ '{base_url}/api/v2/{org_id}/inputs' \
+ -H 'accept: application/json' \
+ -H 'Authorization: Bearer {token}' \
+ -H 'Content-Type: application/json' \
+ -d '{
+ "config": {
+   "secrets": {
+     "client_id": {
+       "name": "CrowdStrike Client ID",
+       "description": "CrowdStrike API client identifier",
+       "value": "your_crowdstrike_client_id"
+     },
+     "client_secret": {
+       "name": "CrowdStrike Client Secret",
+       "description": "CrowdStrike API client secret",
+       "value": "your_crowdstrike_client_secret"
+     }
+   },
+   "settings": {
+     "cron": "your_cron_for_scheduled_ingest"
+   }
+ },
+ "description": "input_description",
+ "name": "input_name",
+ "promise_id": "",
+ "type": "crowdstrike-device-details"
+}'
+```
+
+# OCSF Conversion
+
+The following JQ transformation converts Crowdstrike Device Details data to OCSF Version 1.1.0 compliant format.
+
+## JQ Transformation
+```jq
+{
+  # Required fields per schema
+  "activity_id": 1,
+  "activity_name": "Information",
+  "category_uid": 5,
+  "category_name": "Discovery",
+  "class_uid": 5001,
+  "class_name": "Device Inventory Info",
+  "type_uid": 0,
+  "type_name": "Device Information",
+  "severity_id": 0,
+  "severity": "Info",
+  "time": (.agent_local_time | format_timestamp),
+  "status": "Success",
+  "status_id": 0,
+
+  # Metadata (required)
+  "metadata": {
+    "version": "1.1.0",
+    "product": {
+      "name": "Endpoint Protection",
+      "vendor_name": "Security Vendor",
+      "feature": {
+        "name": "Device Control",
+        "uid": .device_policies.device_control.policy_id,
+        "version": .agent_version
+      }
+    }
+  },
+
+  # Device object following exact schema
+  "device": {
+    # Required field
+    "type_id": (if .product_type_desc == "Workstation" then 1 
+                elif .product_type_desc == "Server" then 2 
+                elif .product_type_desc == "Mobile" then 4 
+                else 99 end),
+    
+    # Optional fields present in input
+    "hostname": .hostname,
+    "name": .hostname,
+    "uid": .device_id,
+    "domain": null,
+    "ip": .local_ip,
+    "mac": .mac_address,
+    "first_seen_time": (.first_seen | format_timestamp),
+    "last_seen_time": (.last_seen | format_timestamp),
+    "is_managed": (.provision_status == "Provisioned"),
+    
+    # Network interfaces array
+    "network_interfaces": [
+      {
+        "type_id": 1,
+        "type": "Wired",
+        "hostname": .hostname,
+        "ip": .local_ip,
+        "mac": .mac_address,
+        "name": .interface_name
+      },
+      (if .connection_ip then {
+        "type_id": (if (.connection_ip | contains(":")) then 2 else 1 end),
+        "type": (if (.connection_ip | contains(":")) then "Wireless" else "Wired" end),
+        "hostname": .hostname,
+        "ip": .connection_ip,
+        "mac": .mac_address,
+        "name": .interface_name
+      } else empty end),
+      (if .external_ip then {
+        "type_id": (if (.external_ip | contains(":")) then 2 else 1 end),
+        "type": (if (.external_ip | contains(":")) then "Wireless" else "Wired" end),
+        "hostname": .hostname,
+        "ip": .external_ip,
+        "mac": .mac_address,
+        "name": .interface_name
+      } else empty end)
+    ],
+    
+    # Hardware info
+    "hw_info": {
+      "bios_manufacturer": .system_manufacturer,
+      "bios_ver": ("v" + .agent_version),
+      "cpu_bits": (if .platform_name == "Mac" then 64 else null end),
+      "cpu_type": (.cpu_vendor | tostring),
+      "chassis": .chassis_type_desc,
+      "serial_number": .serial_number
+    },
+    
+    # OS information
+    "os": {
+      "name": (.platform_name + " " + .os_version),
+      "type_id": (if .platform_name == "Mac" then 300 
+                  elif .platform_name == "Windows" then 100 
+                  elif .platform_name == "Linux" then 200 
+                  else 0 end),
+      "type": .platform_name,
+      "version": .os_version,
+      "build": .os_build,
+      "cpu_bits": (if .platform_name == "Mac" then 64 else null end),
+      "cpe_name": (if .platform_name == "Mac" then 
+                    ("cpe:/o:apple:macos:" + (.os_version | split(" ")[0] | ascii_downcase))
+                  else null end)
+    },
+    
+    # Modified time if available
+    "modified_time": (if .modified_timestamp then (.modified_timestamp | format_timestamp) else null end)
+  },
+  raw_data: (. | tostring),
+  # Optional fields that are present in source data
+  "unmapped": {
+    "agent_load_flags": .agent_load_flags,
+    "config_id_base": .config_id_base,
+    "config_id_build": .config_id_build,
+    "config_id_platform": .config_id_platform,
+    "kernel_version": .kernel_version,
+    "platform_id": .platform_id,
+    "platform_name": .platform_name,
+    "provision_status": .provision_status,
+    "reduced_functionality_mode": .reduced_functionality_mode,
+    "device_policies": .device_policies
+  }
+}
+```
+
+## OCSF Mapping Details
+
+The JQ transformation converts Crowdstrike Device Details to OCSF Version 1.1.0 with the following key mappings:
+
+### Core Fields
+- **Class UID**: Set to 5001 (Device Inventory Info)
+- **Category UID**: Set to 5 (Discovery)
+- **Type UID**: Set to 0 (Device Information)
+- **Activity ID**: Set to 1 (Information)
+- **Severity ID**: Set to 0 (Info)
+- **Time**: Extracted from `agent_local_time` field with milliseconds stripped
+- **Status**: Set to "Success"
+- **Status ID**: Set to 0
+
+### Device Information
+- **Type ID**: Mapped from product_type_desc:
+    - Workstation → 1
+    - Server → 2
+    - Mobile → 4
+    - Others → 99
+- **Hostname**: Maps directly from hostname
+- **Name**: Maps from hostname
+- **UID**: Maps from device_id
+- **IP**: Maps from local_ip
+- **MAC**: Maps from mac_address
+- **Time Information**:
+    - First Seen: Converted from `first_seen`
+    - Last Seen: Converted from `last_seen`
+- **Is Managed**: Derived from provision_status
+
+### Network Interfaces
+- Creates array of interfaces including:
+    - Local network interface
+    - Connection interface (if present)
+    - External interface (if present)
+- Each interface includes:
+    - Type ID: 1 (Wired) or 2 (Wireless)
+    - Type: "Wired" or "Wireless"
+    - Hostname, IP, MAC, and interface name
+
+### Hardware Information
+- **BIOS Manufacturer**: Maps from system_manufacturer
+- **BIOS Version**: Constructed from agent_version
+- **CPU Information**:
+    - Bits: Set to 64 for Mac, null otherwise
+    - Type: Maps from cpu_vendor
+- **Chassis**: Maps from chassis_type_desc
+- **Serial Number**: Maps directly from serial_number
+
+### Operating System Information
+- **Name**: Concatenated from platform_name and os_version
+- **Type ID**: Mapped from platform_name:
+    - Mac → 300
+    - Windows → 100
+    - Linux → 200
+    - Others → 0
+- **Version**: Maps from os_version
+- **Build**: Maps from os_build
+- **CPE Name**: Generated for Mac systems
+
+### Metadata
+- **Version**: Set to "1.1.0"
+- **Product**:
+    - Name: "Endpoint Protection"
+    - Vendor Name: "Security Vendor"
+    - Feature Information:
+        - Name: "Device Control"
+        - UID: Maps from device_policies.device_control.policy_id
+        - Version: Maps from agent_version
+
+### Unmapped Fields
+Additional fields not part of the OCSF schema are preserved in the unmapped object for reference and potential future use.
+
+### Customization
+The transformation serves as a starting point and can be modified to accommodate specific requirements while maintaining OCSF compliance. The mapping prioritizes essential device information and platform detection while providing appropriate handling for optional fields.

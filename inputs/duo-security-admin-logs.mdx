@@ -1,0 +1,91 @@
+---
+title: Duo Security Admin Logs
+description: >
+ Returns a list of administrator log events from Duo Security.
+---
+
+## Details
+Monad uses the `mintime` on the [api](https://duo.com/docs/adminapi#logs) to determine what logs to display. This field is updated every time a request to get admin logs is successful with the last time a request to get the logs was initiated. If this was the first time requesting for admin logs, a full sync of the data is performed.
+
+## Prerequisites
+
+***Before you connect Monad to Duo Security, you need an Integration Key, Secret Key, and a Host.*** 
+
+1. [Sign up for a Duo account](https://signup.duo.com/) if you aren't already a customer.
+2. [Log in to the Duo Admin Panel](https://admin.duosecurity.com/login?next=%2F) and navigate to Applications → Protect an Application.
+3. Locate the entry for Admin API in the applications list. Click Protect to the far-right to configure the application and get your **integration key, secret key, and API hostname.** 
+
+## Related Articles
+- [https://duo.com/docs/adminapi#first-steps](https://duo.com/docs/adminapi#first-steps)
+- [https://duo.com/docs/adminapi#logs](https://duo.com/docs/adminapi#logs)
+- [https://pkg.go.dev/github.com/duosecurity/duo_api_golang#NewDuoApi](https://pkg.go.dev/github.com/duosecurity/duo_api_golang#NewDuoApi)
+
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Host | string | Yes | The Duo API endpoint used for sending authentication and other requests. |
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| Integration Key | string | Yes | A unique identifier for the integration between your application and Duo Security. |
+| Secret Key | string | Yes | A private key used to securely sign API requests to Duo. |
+
+## API
+
+To send a `POST` request to create this Crowdstrike Connector:
+
+```bash
+curl -X 'POST' \
+ '{base_url}/api/v2/{org_id}/inputs' \
+ -H 'accept: application/json' \
+ -H 'Authorization: Bearer {token}' \
+ -H 'Content-Type: application/json' \
+ -d '{
+ "config": {
+   "secrets": {
+     "integration_key": {
+       "name": "Duo Integration Key",
+       "description": "Duo Security API integration key",
+       "value": "your_duo_integration_key"
+     },
+     "secret_key": {
+       "name": "Duo Secret Key",
+       "description": "Duo Security API secret key",
+       "value": "your_duo_secret_key"
+     }
+   },
+   "settings": {
+       "host": "your_duo_host"
+   }
+ },
+ "description": "input_description",
+ "name": "input_name",
+ "promise_id": "",
+ "type": "duo-security-admin-logs"
+}'
+```
+
+## Custom Schema Handling
+
+If the source data doesn't align with any of the [OpenSecurityControlFramework (OSCF) schemas](https://github.com/ocsf), you can create a custom transformation using our JQ transform pipeline. For example:
+
+```jq
+{
+  metadata: {
+    schema_version: "1.0.0",
+    custom_framework: "my_framework"
+  },
+  controls: .[]
+}
+```
+
+For more information on JQ and how to write your own JQ transformations see the JQ docs [here](https://jqlang.github.io/jq/)
+
+If you believe this data source should be included in the standard OSCF schema set, please reach out to our team at [support@monad.com](mailto:support@monad.com). We're always looking to expand our coverage of security control frameworks based on community needs.
+

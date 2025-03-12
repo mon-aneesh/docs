@@ -1,0 +1,144 @@
+---
+title: Amazon S3
+description: >
+  Enables seamless streaming of data posted to an S3 bucket into the Monad solution.
+---
+
+## Details
+When the input is run for the first time, it will pull all files found in the specified bucket-prefix. After every successful sync, a timestamp of the previous run's start time is saved. This timestamp is used to pull data only from the current day's partition, with a 1-day grace overlap. This means that Monad checks for new data in both today's partition and the previous day's partition. This overlap ensures that data stored in the previous day's prefix, even if saved after midnight, is captured. The previous run's timestamp is compared to the updated-at time for each object to ensure only new data added since the last run is ingested. Monad checks for new data every 10 seconds.
+
+## Prerequisites
+- You must create a role that monad can assume that is granted permission to access the bucket you are storing your data in.
+- Below is a quick run down of the trust relationship and permissions required for your role.
+- Example Trust relationship: 
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": [
+          "arn:aws:iam::339712996529:role/monad-app"
+        ]
+      },
+      "Action": [
+        "sts:AssumeRole",
+        "sts:TagSession"
+      ]
+    }
+  ]
+}
+
+```
+- The above trust relationship allows the monad-app role on our end to assume your newly created role.
+- The externalId condition allows only sts calls that also pass the externalID parameter. Monad will pass your organization_id as the externalId.
+- Ensure your role has access to your S3 bucket via the GetObject and ListBucket action on the bucket provided.
+- Example permission: 
+```json 
+{
+   "Version": "2012-10-17",
+   "Statement": [
+      {
+         "Sid": "S3BucketLevelListPermissions",
+         "Effect": "Allow",
+         "Action": "s3:ListBucket",
+         "Resource": "arn:aws:s3:::{bucket_name}"
+      },
+      {
+         "Sid": "S3ObjectLevelPermissions",
+         "Effect": "Allow",
+         "Action": [
+            "s3:PutObject",
+            "s3:GetObject"
+         ],
+         "Resource": "arn:aws:s3:::{bucket_name}/*"
+      }
+   ]
+}
+```
+
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Region | string | Yes | The region of the S3 bucket. |
+| Bucket | string | Yes | The name of the S3 bucket. |
+| Prefix | string | No | Prefix of the S3 object keys to read. |
+| Compression | string | Yes | Compression format of the S3 objects. |
+| Format | string | Yes | File format of the S3 objects. |
+| Partition Format | string | Yes | The existing partition format used in your S3 bucket. |
+| RoleARN | string | Yes | Role ARN to assume when reading from S3. |
+| Record Location | string | No | Location of the record in the JSON object. This can be ignored if the record is not in JSON format. |
+
+### Partition Format
+
+The Partition Format setting specifies the existing organization of data within your S3 bucket. This is crucial for the system to correctly navigate and read your data. Select the option that matches your current S3 bucket structure:
+
+1. **Simple Date Format** ('simple date'):
+    - Structure: `YYYY/MM/DD`
+    - Example: `2024/01/01`
+    - Use case: For buckets using basic chronological organization of data.
+
+2. **Hive-compatible Format** ('hive compliant'):
+    - Structure: `year=YYYY/month=MM/day=DD`
+    - Example: `year=2024/month=01/day=01`
+    - Use case: For buckets set up in a Hive-compatible format, common in data lake configurations.
+
+Selecting the correct Partition Format ensures that the system can efficiently locate and process your existing data by matching your S3 bucket's current structure. This setting does not change your bucket's organization; it tells the system how to navigate it.
+#### Secrets
+
+None.
+
+## API
+
+To send a `POST` request to create this S3 Connector:
+
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "config": {
+    "secrets": {},
+    "settings": {
+      "region": "region",
+      "bucket": "bucket",
+      "prefix": "prefix",
+      "compression": "compression",
+      "format": "format",
+      "record_location": "record_location",
+      "role_arn": "role_arn"
+    }
+  },
+  "description": "input_description",
+  "name": "input_name",
+  "promise_id": "",
+  "type": "s3"
+}'
+```
+
+## Custom Schema Handling
+
+If the source data doesn't align with any of the [OpenSecurityControlFramework (OSCF) schemas](https://github.com/ocsf), you can create a custom transformation using our JQ transform pipeline. For example:
+
+```jq
+{
+  metadata: {
+    schema_version: "1.0.0",
+    custom_framework: "my_framework"
+  },
+  controls: .[]
+}
+```
+
+For more information on JQ and how to write your own JQ transformations see the JQ docs [here](https://jqlang.github.io/jq/)
+
+If you believe this data source should be included in the standard OSCF schema set, please reach out to our team at [support@monad.com](mailto:support@monad.com). We're always looking to expand our coverage of security control frameworks based on community needs.
+

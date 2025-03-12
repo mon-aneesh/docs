@@ -1,0 +1,155 @@
+---
+title: GitHub Enterprise Audit Logs
+description: Collect audit logs from your GitHub Enterprise organization using the GitHub Audit Log API
+---
+
+## Prerequisites
+
+Before configuring this input, you need to:
+
+1. **Create a Personal Access Token (PAT)** - _[github docs](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-personal-access-token-classic)_:
+    - Go to your GitHub settings
+    - Navigate to Developer settings > Personal access tokens > Tokens (classic)
+    - Click "Generate new token (classic)"
+    - Select the `read:audit_log` scope
+    - Copy and securely store the generated token
+
+2. **Required Permissions**:
+    - You must be an enterprise admin to access enterprise audit logs
+    - The PAT must have the `read:audit_log` scope
+
+## Configuration
+
+### Settings
+
+| Setting | Type | Required | Default | Description |
+|---------|------|----------|---------|-------------|
+| enterprise | string | Yes | - | Your GitHub enterprise slug or ID |
+| include | string | Yes | "all" | Type of events to include: "web" (non-git events), "git" (git events), or "all" |
+| created_after | timestamp | No | - | Only return audit log entries after this timestamp |
+| actor | string | No | - | Filter by the username that initiated the action |
+| actions | array | No | - | Filter by specific actions or action patterns (e.g., ["repo.create", "team.*"]) |
+| organization | string | No | - | Filter by organization name |
+| repository | string | No | - | Filter by repository (format: org-name/repo-name) |
+| country | string | No | - | Filter by actor's country code (e.g., "US") |
+| user | string | No | - | Filter by the username that was affected by the action |
+
+### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| personal_access_token | string | Yes | GitHub Personal Access Token with read:audit_log scope |
+
+## Important Notes About Filtering
+
+When using filters, be aware that:
+
+1. **Missing Data Fields**: Not all audit log entries contain all fields. If you filter on a field that isn't present in a record, that record will be excluded. For example:
+    - If you filter by `country: "US"` but an event doesn't include actor location data, that event won't be captured
+    - Some events may not have an affected user, so filtering by `user` would exclude those events
+
+2. **Action Patterns**: The `actions` filter supports both exact matches and wildcards:
+    - Exact match: `"repo.create"`, `"team.add_member"`
+    - Wildcard: `"repo.*"` (all repository events), `"team.*"` (all team events)
+
+3. **Case Sensitivity**: Some fields are case sensitive:
+    - Organization and repository names are case sensitive
+    - Country codes are case insensitive (both "US" and "us" work)
+    - 
+## Created After Timestamp Behavior
+
+Initial Run:
+When a pipeline starts for the first time with no existing state (never processed any records),
+it will use the provided 'created_after' timestamp as the starting point.
+
+Subsequent Runs:
+When modifying the 'created_after' field of an existing pipeline:
+
+1. The input compares two timestamps:
+   - The provided 'created_after' timestamp
+   - The pipeline's current state timestamp (tracked from the most recent record processed)
+
+2. It chooses the LATER timestamp:
+   - If 'created_after' is more recent → Uses 'created_after'
+   - If state timestamp is more recent → Uses state timestamp
+
+**Example:**
+Pipeline has processed records up to January 15th (state timestamp)
+- Setting created_after to January 10th → Uses January 15th (state wins)
+ - Setting created_after to January 20th → Uses January 20th (created_after wins)
+
+This ensures the input never reprocesses data it has already seen and maintains forward progress.
+
+## API
+
+To send a `POST` request to create this Google Workspace Connector:
+```bash
+curl -X 'POST' \
+ '{base_url}/api/v2/{org_id}/inputs' \
+ -H 'accept: application/json' \
+ -H 'Authorization: Bearer {token}' \
+ -H 'Content-Type: application/json' \
+ -d '{
+ "config": {
+   "secrets": {
+     "personal_access_token": {
+       "name": "GitHub Personal Access Token",
+       "description": "GitHub PAT for API authentication",
+       "value": "your-pat-token"
+     }
+   },
+   "settings": {
+     "enterprise": "enterprise-slug",
+     "include": "all"
+   }
+ },
+ "name": "GitHub Enterprise Audit Logs",
+ "type": "github-audit-logs"
+}'
+```
+## Limitations
+
+- API rate limits apply (1,750 requests per hour per user/token)
+- Maximum of 100 results per page
+- Secondary rate limits may apply for high-frequency requests
+- Historical data availability depends on your GitHub Enterprise retention settings
+
+## Troubleshooting
+
+Common issues and solutions:
+
+### 1. Rate Limit Errors
+- The input automatically handles rate limiting by waiting for the reset period
+- You'll see logs indicating the wait time when rate limits are hit
+- It is possible that the speed at which you generate records exceed how fast Monad can ingest them due to Github's rate limits. 
+In these scenarios you may wish to filter more granular.
+
+### 2. Authentication Errors
+- Verify your PAT has the `read:audit_log` scope
+- Ensure the PAT hasn't expired
+- Confirm you have enterprise admin access
+
+### 3. No Data
+- Check if your filters might be too restrictive
+- Verify that the enterprise slug/ID is correct
+- Ensure there are audit events in the time range you're querying
+
+
+## Custom Schema Handling
+
+If the source data doesn't align with any of the [OpenSecurityControlFramework (OSCF) schemas](https://github.com/ocsf), you can create a custom transformation using our JQ transform pipeline. For example:
+
+```jq
+{
+  metadata: {
+    schema_version: "1.0.0",
+    custom_framework: "my_framework"
+  },
+  controls: .[]
+}
+```
+
+For more information on JQ and how to write your own JQ transformations see the JQ docs [here](https://jqlang.github.io/jq/)
+
+If you believe this data source should be included in the standard OSCF schema set, please reach out to our team at [support@monad.com](mailto:support@monad.com). We're always looking to expand our coverage of security control frameworks based on community needs.
+
