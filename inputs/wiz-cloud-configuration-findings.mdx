@@ -1,0 +1,227 @@
+---
+title: Wiz Cloud Configuration Findings
+description: >
+  Collects and processes Wiz Cloud Configuration Findings logs from the Wiz API, ensuring continuous monitoring and reporting of cloud misconfigurations and vulnerabilities.
+---
+
+## Details
+Monad uses the Wiz API to fetch cloud configuration findings. The `LastRunTime` filter is applied to retrieve only the findings that were detected or updated after the last successful sync. If this is the first time connecting to the Wiz API, Monad performs a full sync of all available findings.
+
+## Prerequisites
+- Before connecting Monad to Wiz, you need to obtain API credentials (Client ID and Client Secret). These credentials allow access to the Wiz API to fetch cloud configuration findings.
+- Ensure that your Wiz account has the appropriate permissions to access the necessary API endpoints. To access Cloud Findings specifically, make sure your credentials have the `read:cloud_configuration` permission.
+
+## Related Articles
+- [https://win.wiz.io/reference/quickstart](https://win.wiz.io/reference/quickstart)
+- [https://win.wiz.io/reference/configuration-finding](https://win.wiz.io/reference/configuration-finding)
+
+
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Endpoint URL | string | Yes | Endpoint URL to connect to Wiz. |
+| Severity | Array | No | Your Wiz Vendor Severity for Vulnerability Findings. |
+| Status | Array | No | The status of a Vulnerability Finding. |
+| Result | Array | No | Filters data by result type. |
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| Client ID | string | Yes | Client ID for the CrowdStrike API. This is required to authenticate requests. |
+| Client Secret | string | Yes | Client Secret for the CrowdStrike API. This is required to authenticate requests. |
+
+## API
+
+To send a `POST` request to create this Wiz Connector:
+
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "config": {
+    "settings": {
+        "endpoint_url": "https://api.us17.app.wiz.io/graphql",
+        "severity": [],
+        "status": [],
+        "result": [],            
+    },
+    "secrets": {
+      "client_id": {
+       "name": "Wiz Client ID",
+       "description": "Client ID for Wiz authentication",
+       "value": "your_client_id"
+     },
+     "client_secret": {
+       "name": "Wiz Client Secret",
+       "description": "Client secret for Wiz authentication",
+       "value": "your_client_secret"
+     }          
+    }
+  },
+  "description": "input_description",
+  "name": "input_name",
+  "promise_id": "",
+  "type": "wiz-cloud-configuration-findings"
+}'
+```
+
+# OCSF Conversion
+
+The following JQ transformation converts Wiz Cloud Configuration Finding data to OCSF Version 1.1.0 compliant format.
+
+## JQ Transformation
+```jq
+{
+  category_uid: 2,
+  class_uid: 2003,
+  time: .firstSeenAt,
+  type_uid: 200302,
+  activity_id: 2,
+  
+  category_name: "Findings",
+  class_name: "Compliance Finding",
+  type_name: "Compliance Finding: Update",
+  activity_name: "Update",
+  severity: .severity,
+  severity_id: (
+    if .severity == "MEDIUM" then 3 
+    elif .severity == "HIGH" then 4 
+    elif .severity == "LOW" then 2
+    else 0 
+    end
+  ),
+  finding_info: {
+    title: (.rule.name // null),
+    uid: .id,
+    desc: (.rule.description // null),
+    created_time: (.firstSeenAt // null),
+    modified_time: (.updatedAt // null),
+    types: [
+      "configuration"
+    ]
+  },
+  
+  metadata: {
+    product: {
+      name: "Wiz",
+      vendor_name: "Wiz",
+      version: "1.0"
+    },
+    version: "1.1.0"
+  },
+  
+  message: (.rule.name // null),
+  resource: {
+    type: (.resource.type // null),
+    uid: (.resource.id // null),
+    name: (.resource.name // null),
+    labels: (if .resource.labels then (.resource.labels | to_entries | map(.value)) else [] end),
+    owner: (.resource | if .owner then {
+      name: (.owner // null),
+      uid: (.ownerId // null),
+      type_id: (
+        if .ownerType == "ADMIN" then 2
+        elif .ownerType == "SYSTEM" then 3
+        elif .ownerType == "USER" then 1
+        else 0 
+        end
+      ),
+      type: (.ownerType // null)
+    } else null end),
+    cloud: {
+      provider: (.resource.cloudPlatform // null),
+      account: {
+        uid: (.resource.subscription.externalId // null)
+      },
+      region: (.resource.region // null)
+    }
+  },
+  
+  remediation: (.remediation // null),
+  status: (.status // null),
+  status_id: (
+    if .status == "OPEN" then 1
+    elif .status == "RESOLVED" then 4
+    else 0 
+    end
+  ),
+  raw_data: (. | tostring),
+  observables: [{
+    name: "resource_id",
+    value: (.targetExternalId // null),
+    type: "Resource UID",
+    type_id: 10
+  }]
+}
+```
+
+## OCSF Mapping Details
+
+The JQ transformation converts Wiz Cloud Configuration Findings to OCSF Version 1.1.0 with the following key mappings:
+
+### Core Fields
+- **Category UID**: Set to 2 (Findings)
+- **Class UID**: Set to 2003 (Compliance Finding)
+- **Type UID**: Set to 200302 (Compliance Finding: Update)
+- **Activity ID**: Set to 2 (Update)
+- **Severity ID**: Mapped from Wiz severity levels:
+    - HIGH → 4
+    - MEDIUM → 3
+    - LOW → 2
+    - others → 0 (Unknown)
+- **Time**: Maps directly from `firstSeenAt` field
+
+### Finding Information
+- **UID**: Maps from finding ID
+- **Title**: Maps from rule name
+- **Description**: Maps from rule description
+- **Created Time**: Maps from `firstSeenAt`
+- **Modified Time**: Maps from `updatedAt`
+- **Types**: Set to ["configuration"]
+
+### Resource Details
+- **Type**: Maps from resource type
+- **UID**: Maps from resource ID
+- **Name**: Maps from resource name
+- **Labels**: Converts resource labels to array of values
+- **Owner Information**:
+    - Name: Maps from owner
+    - UID: Maps from ownerID
+    - Type ID mapping:
+        - ADMIN → 2
+        - SYSTEM → 3
+        - USER → 1
+        - others → 0 (Unknown)
+
+### Cloud Information
+- **Provider**: Maps from cloudPlatform
+- **Account UID**: Maps from subscription externalId
+- **Region**: Maps from resource region
+
+### Status Information
+- **Status**: Maps directly from status field
+- **Status ID**: Mapped from status:
+    - OPEN → 1 (New)
+    - RESOLVED → 4 (Resolved)
+    - others → 0 (Unknown)
+
+### Observables
+- Includes resource ID as an observable with type "Resource UID" (type_id: 10)
+
+### Metadata
+- **Version**: Set to "1.1.0"
+- **Product**:
+    - Vendor name: "Wiz"
+    - Name: "Wiz"
+    - Version: "1.0"
+
+### Customization
+The transformation serves as a starting point and can be modified to accommodate specific requirements while maintaining OCSF compliance. The mapping prioritizes essential cloud configuration information while providing fallback values for optional fields.

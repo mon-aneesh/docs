@@ -1,0 +1,478 @@
+---
+title: Wiz Vulnerabilities 
+description: >
+  Collects and processes Wiz Vulnerabilities logs from the Wiz API, ensuring continuous monitoring and reporting of vulnerabilities.
+---
+
+## Details
+Monad connects to the Wiz API to collect Vulnerabilities data. The connector operates in two modes:
+
+- Initial Report: When running for the first time, the connector creates a new Vulnerabilities report. It waits for the report generation to complete, and processes the resulting CSV data and sends it forward.
+
+- Incremental Sync Mode: For subsequent runs, the connector fetches all data **since** the report was first generated, and retrieves only vulnerabilities that were updated after this timestamp using the updatedAt filter on the Wiz API.
+
+## Prerequisites
+- Before connecting Monad to Wiz, you need to obtain API credentials (Client ID and Client Secret). These credentials allow access to the Wiz API to fetch cloud configuration findings.
+- Ensure that your Wiz credentials have the appropriate permissions to access the necessary API endpoints. To access Vulnerabilities specifically, make sure your credentials have `create:reports`, `read:vulnerabilities` and `update:reports` permissions.
+
+## Related Articles
+- [https://win.wiz.io/reference/quickstart](https://win.wiz.io/reference/quickstart)
+- [https://win.wiz.io/reference/create-vuln-report](https://win.wiz.io/reference/create-vuln-report)
+- [https://win.wiz.io/reference/vulnerability-finding](https://win.wiz.io/reference/vulnerability-finding)
+- [https://win.wiz.io/reference/update-vulnerabilities-report](https://win.wiz.io/reference/update-vulnerabilities-report)
+
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Endpoint URL | string | Yes | Endpoint URL to connect to Wiz. |
+| Asset Type | string | Yes | Your Wiz Asset Types for Vulnerability Findings. |
+| Vendor Severity | Array | No | Your Wiz Vendor Severity for Vulnerability Findings. |
+| Asset Status | Array | No | Vulnerability Findings for assets with these statuses |
+| Status | Array | No | The status of a Vulnerability Finding. |
+| Detection Method | Array | No | Vulnerability Findings found via these detection methods. |
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| Client ID | string | Yes | Client ID for the CrowdStrike API. This is required to authenticate requests. |
+| Client Secret | string | Yes | Client Secret for the CrowdStrike API. This is required to authenticate requests. |
+
+## API
+
+
+To send a `POST` request to create this Wiz Connector:
+
+To create a new secret, provide `name`, `description`, and `value` parameters. To use an existing secret, simply provide its `id`:
+
+```json
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000"
+}
+```
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "config": {
+    "settings": {
+      "endpoint_url": "your_wiz_api_endpoint_url",  
+      "vendor_severity": [],        
+      "status": [],               
+      "asset_status": [],                      
+      "asset_type": "VIRTUAL_MACHINE",                    
+      "detection_method": []              
+    },
+    "secrets": {
+      "client_id": {
+       "name": "Wiz Client ID",
+       "description": "Client ID for Wiz authentication",
+       "value": "your_client_id"
+     },
+     "client_secret": {
+       "name": "Wiz Client Secret",
+       "description": "Client secret for Wiz authentication",
+       "value": "your_client_secret"
+     }       
+    }
+  },
+  "description": "input_description",
+  "name": "input_name",
+  "promise_id": "",
+  "type": "wiz-vulnerabilities"
+}'
+```
+
+
+# OCSF Conversion
+
+The following JQ transformations convert Wiz Vulnerability data to OCSF Version 1.1.0 compliant format based on the selected asset type.
+
+## Container Image Asset Type
+
+### JQ Transformation
+```jq
+{
+  activity_id: 0,
+  category_uid: 2,
+  class_uid: 2002,
+  
+  cloud: {
+    provider: .vulnerableAsset.cloudPlatform,
+    subscription: {
+      id: .vulnerableAsset.subscriptionId,
+      name: .vulnerableAsset.subscriptionName,
+      external_id: .vulnerableAsset.subscriptionExternalId
+    },
+    region: .vulnerableAsset.region
+  },
+  
+  finding_info: {
+    title: .name,
+    desc: .description,
+    uid: .id,
+    status: .status,
+    resolution_reason: .resolutionReason,
+    resolved_at: (if .resolvedAt then (.resolvedAt | gsub("\\.[0-9]+"; "") | fromdateiso8601) else null end)
+  },
+  
+  metadata: {
+    product: {
+      name: "Wiz",
+      vendor_name: "Wiz"
+    },
+    version: "1.1.0",
+    detection_details: {
+      method: .detectionMethod,
+      validation: .validatedInRuntime
+    },
+    source: {
+      name: .dataSourceName,
+      link: .link,
+      portal_url: .portalUrl
+    }
+  },
+  
+  resource: {
+    type: .vulnerableAsset.type,
+    name: .vulnerableAsset.name,
+    id: .vulnerableAsset.id,
+    status: .vulnerableAsset.status,
+    image: {
+      id: .vulnerableAsset.imageId,
+      registry: .vulnerableAsset.registry.name,
+      repository: .vulnerableAsset.repository.name
+    },
+    tags: .vulnerableAsset.tags
+  },
+  
+  severity_id: (
+    if .vendorSeverity == "MEDIUM" then 2
+    elif .vendorSeverity == "HIGH" then 3
+    elif .vendorSeverity == "LOW" then 1
+    elif .vendorSeverity == "CRITICAL" then 5
+    else 0 
+    end
+  ),
+  
+  time: (if .firstDetectedAt then (.firstDetectedAt | gsub("\\.[0-9]+"; "") | fromdateiso8601) else 0 end),
+  start_time: (if .firstDetectedAt then (.firstDetectedAt | gsub("\\.[0-9]+"; "") | fromdateiso8601) else 0 end),
+  end_time: (if .lastDetectedAt then (.lastDetectedAt | gsub("\\.[0-9]+"; "") | fromdateiso8601) else 0 end),
+  
+  type_uid: 200200,
+  
+  vulnerabilities: [{
+    cve: {
+      uid: .name,
+      description: .CVEDescription
+    },
+    title: .name,
+    desc: .description,
+    remediation: {
+      desc: .remediation,
+      fixed_version: .fixedVersion
+    },
+    severity: .vendorSeverity,
+    scores: {
+      cvss_severity: .CVSSSeverity,
+      epss: {
+        percentile: .epssPercentile,
+        probability: .epssProbability,
+        severity: .epssSeverity
+      },
+      exploitability: .exploitabilityScore,
+      impact: .impactScore
+    },
+    package: {
+      name: .detailedName,
+      version: .version
+    },
+    metadata: {
+      has_exploit: .hasExploit,
+      has_cisa_kev_exploit: .hasCisaKevExploit
+    }
+  }]
+}
+```
+
+### OCSF Mapping Details for Container Image
+
+#### Core Fields
+- **Class UID**: Set to 2002 (Vulnerability Finding)
+- **Category UID**: Set to 2 (Findings)
+- **Type UID**: Set to 200200 (Vulnerability Finding: Unknown)
+- **Activity ID**: Set to 0 (Unknown)
+- **Time**: Extracted from `firstDetectedAt` field
+    - Strips milliseconds from ISO timestamp
+    - Converts to Unix timestamp format
+- **Severity ID**: Maps from `vendorSeverity` with the following conversion:
+    - CRITICAL → 5
+    - HIGH → 3
+    - MEDIUM → 2
+    - LOW → 1
+    - Others → 0
+
+#### Cloud Information
+- **Provider**: Maps from `vulnerableAsset.cloudPlatform`
+- **Subscription**: Maps subscription details including:
+    - ID: `subscriptionId`
+    - Name: `subscriptionName`
+    - External ID: `subscriptionExternalId`
+- **Region**: Maps from `vulnerableAsset.region`
+
+#### Finding Information
+- **Title**: Maps from vulnerability name
+- **Description**: Maps from vulnerability description
+- **UID**: Maps from vulnerability ID
+- **Status**: Direct mapping from status field
+- **Resolution**: Includes both reason and timestamp
+
+#### Resource Details
+- **Type**: Maps from `vulnerableAsset.type`
+- **Name**: Maps from `vulnerableAsset.name`
+- **ID**: Maps from `vulnerableAsset.id`
+- **Image Information**:
+    - ID: Maps from `imageId`
+    - Registry: Maps from `registry.name`
+    - Repository: Maps from `repository.name`
+
+#### Vulnerability Details
+- **CVE Information**:
+    - UID: Maps from vulnerability name
+    - Description: Maps from CVE description
+- **Scores**:
+    - CVSS Severity
+    - EPSS Details (percentile, probability, severity)
+    - Exploitability Score
+    - Impact Score
+- **Package Information**:
+    - Name: Maps from `detailedName`
+    - Version: Direct version mapping
+
+## Serverless Asset Type
+
+### JQ Transformation
+```jq
+def normalize_status:
+  if . == "Active" or . == "OPEN" then "Open"
+  elif . == "RESOLVED" then "Resolved"
+  elif . == "IN_PROGRESS" then "InProgress"
+  else .
+  end;
+
+def normalize_severity:
+  if . == "CRITICAL" then "Critical"
+  elif . == "HIGH" then "High"
+  elif . == "MEDIUM" then "Medium"
+  elif . == "LOW" then "Low"
+  elif . == "INFORMATIONAL" or . == "NONE" then "Informational"
+  else .
+  end;
+
+def clean_timestamp:
+  if . then
+    capture("^(?<date>[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2})(?:\\.[0-9]+)?(?<tz>Z|[+-][0-9]{2}:[0-9]{2})?$") |
+    .date + (.tz // "Z")
+  else
+    null
+  end;
+
+def get_first_detected:
+  if .FirstDetected then (.FirstDetected | clean_timestamp)
+  elif .firstDetectedAt and .firstDetectedAt != null then (.firstDetectedAt | clean_timestamp)
+  else (now | strftime("%Y-%m-%dT%H:%M:%SZ"))
+  end;
+
+def get_severity:
+  if .Severity then .Severity
+  elif .vendorSeverity then (.vendorSeverity | normalize_severity)
+  else "Unknown"
+  end;
+
+def get_status:
+  if .Status then (.Status | normalize_status)
+  elif .status then (.status | normalize_status)
+  else "Unknown"
+  end;
+
+def get_cloud_platform:
+  if .CloudPlatform then .CloudPlatform
+  elif .vulnerableAsset.cloudPlatform then .vulnerableAsset.cloudPlatform
+  else "Unknown"
+  end;
+
+def get_subscription_name:
+  if .SubscriptionName then .SubscriptionName
+  elif .vulnerableAsset.subscriptionName then .vulnerableAsset.subscriptionName
+  else "Unknown"
+  end;
+
+def get_subscription_id:
+  if .SubscriptionExternalId then .SubscriptionExternalId
+  elif .vulnerableAsset.subscriptionExternalId then .vulnerableAsset.subscriptionExternalId
+  else "Unknown"
+  end;
+
+def get_asset_id:
+  if .AssetID then .AssetID
+  elif .vulnerableAsset.id then .vulnerableAsset.id
+  else "Unknown"
+  end;
+
+def get_asset_name:
+  if .AssetName then .AssetName
+  elif .vulnerableAsset.name then .vulnerableAsset.name
+  else "Unknown"
+  end;
+
+def get_tags:
+  if .Tags then (.Tags | fromjson)
+  elif .vulnerableAsset.tags then .vulnerableAsset.tags
+  else {}
+  end;
+
+{
+  category_uid: 2,
+  category_name: "Findings",
+  class_uid: 2002,
+  class_name: "Vulnerability Finding",
+  
+  activity_id: (
+    if (get_status) == "Open" then 1
+    elif (get_status) == "Resolved" then 3
+    elif (get_status) == "InProgress" then 2
+    else 0
+    end
+  ),
+  
+  type_uid: (2002 * 100 + (
+    if (get_status) == "Open" then 1
+    elif (get_status) == "Resolved" then 3
+    elif (get_status) == "InProgress" then 2
+    else 0
+    end
+  )),
+  
+  type_name: (
+    if (get_status) == "Open" then "Vulnerability Finding: Create"
+    elif (get_status) == "InProgress" then "Vulnerability Finding: Update"
+    elif (get_status) == "Resolved" then "Vulnerability Finding: Close"
+    else "Vulnerability Finding: Unknown"
+    end
+  ),
+  
+  severity_id: (
+    if (get_severity) == "Critical" then 5
+    elif (get_severity) == "High" then 4
+    elif (get_severity) == "Medium" then 3
+    elif (get_severity) == "Low" then 2
+    elif (get_severity) == "Informational" then 1
+    else 0
+    end
+  ),
+  severity: get_severity,
+
+  time: (get_first_detected | if . then fromdateiso8601 else now end),
+  time_dt: get_first_detected,
+
+  cloud: {
+    provider: get_cloud_platform,
+    account: {
+      name: get_subscription_name,
+      uid: get_subscription_id
+    }
+  },
+
+  finding_info: {
+    uid: (.ID // .id),
+    title: (.Name // .name),
+    desc: (.Name // .name),
+    types: ["vulnerability"]
+  },
+
+  vulnerabilities: [{
+    uid: (.Name // .name),
+    title: (.Name // .name),
+    desc: (.Name // .name),
+    severity: (get_severity | ascii_downcase),
+    severity_id: (
+      if (get_severity) == "Low" then 0
+      elif (get_severity) == "Medium" then 1
+      elif (get_severity) == "High" then 2
+      elif (get_severity) == "Critical" then 3
+      else 99
+      end
+    )
+  }],
+
+  resources: [{
+    uid: get_asset_id,
+    name: get_asset_name,
+    labels: get_tags
+  }],
+  raw_data: (. | tostring),
+  metadata: {
+    version: "1.1.0",
+    product: {
+      name: "Wiz",
+      vendor_name: "Wiz",
+      feature: {
+        name: "Vulnerability Scanner"
+      }
+    }
+  }
+}
+```
+
+### OCSF Mapping Details for Serverless
+
+#### Core Fields
+- **Category**: ID 2 (Findings)
+- **Class**: ID 2002 (Vulnerability Finding)
+- **Activity ID**: Determined by status:
+    - Open → 1 (Create)
+    - InProgress → 2 (Update)
+    - Resolved → 3 (Close)
+    - Others → 0 (Unknown)
+- **Type UID**: Calculated as (2002 * 100 + activity_id)
+- **Severity ID**: Maps from `Severity` with the following conversion:
+    - Critical → 5
+    - High → 4
+    - Medium → 3
+    - Low → 2
+    - Informational → 1
+    - Others → 0
+
+#### Finding Information
+- **UID**: Maps from `ID`
+- **Title**: Maps from `Name`
+- **Description**: Maps from `Name`
+- **Types**: Fixed as ["vulnerability"]
+
+#### Cloud Information
+- **Provider**: Maps from `CloudPlatform`
+- **Account**:
+    - Name: Maps from `SubscriptionName`
+    - UID: Maps from `SubscriptionExternalId`
+
+#### Resource Information
+- **UID**: Maps from `AssetID`
+- **Name**: Maps from `AssetName`
+- **Labels**: Parsed from JSON Tags
+
+#### Metadata
+- **Version**: Set to "1.1.0"
+- **Product**:
+    - Name: "Wiz"
+    - Vendor Name: "Wiz"
+    - Feature Name: "Vulnerability Scanner"
+
+### Customization Notes
+Both transformations serve as starting points and can be modified to accommodate specific requirements while maintaining OCSF compliance. The mappings prioritize essential vulnerability and asset information while providing appropriate handling of status transitions and severity levels.

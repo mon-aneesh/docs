@@ -1,0 +1,174 @@
+---
+title: Google Cloud Logs
+description: >
+  Collects and ingests records from the Google Cloud Logging API.
+---
+
+## Details
+
+The Google Cloud Logs input allows you to collect and ingest log data from Google Cloud Platform (GCP) services using the Google Cloud Logging API.
+
+## Prerequisites
+
+Before setting up the Google Cloud Logs input, you need to:
+
+1. Have a Google Cloud Platform account with access to the desired project.
+2. Create a service account with the necessary permissions.
+3. Generate a JSON key for the service account.
+
+## Configuration
+
+### Settings
+
+| Setting | Type | Required | Default | Description |
+|---------|------|----------|---------|-------------|
+| resource_names | array | Yes | - | List of resources to get logs from |
+| filter | string | No | - | Google cloud logs query filter |
+
+### Secrets
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| credentials_json | string | Yes | Base64 encoded string of the service account json key file |
+
+## Setting up the Service Account
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
+2. Select your project from the project dropdown at the top of the page.
+3. Navigate to "IAM & Admin" > "Service Accounts".
+4. Click "Create Service Account".
+5. Enter a name for the service account and click "Create".
+6. Assign the following role to the service account:
+   - Logs Viewer
+7. Click "Continue" and then "Done".
+8. Find the newly created service account in the list and click on it.
+9. Go to the "Keys" tab and click "Add Key" > "Create new key".
+10. Choose JSON as the key type and click "Create".
+11. Save the downloaded JSON key file securely.
+
+## Setting up the Input
+
+1. In the Monad UI, go to the "Inputs" section.
+2. Click "Add Input" and select "Google Cloud Logs".
+3. Configure the input settings:
+   - **Resource Name**: A list of Google Cloud resources you want to collect logs from (e.g., `["projects/my-project", "folders/my-folder", "organizations/my-org"]`)
+   - **Filter**: A Google Cloud log filter to specify which logs to collect (e.g., `severity>=WARNING`)
+4. In the "Secrets" section, provide the base64 encoded string of your service account JSON key file.
+
+## Related Articles
+
+- [Google Cloud Logging Documentation](https://cloud.google.com/logging/docs)
+- [Using the Logs Viewer](https://cloud.google.com/logging/docs/view/logs-viewer-interface)
+- [Logging query language](https://cloud.google.com/logging/docs/view/logging-query-language)
+
+## Config
+
+```json
+{
+  "settings": {
+    "resource_names": ["projects/my-project", "folders/my-folder"],
+    "filter": "severity>=WARNING"
+  },
+  "secrets": {
+    "credentials_json": "BASE64_ENCODED_SERVICE_ACCOUNT_JSON_KEY"
+  }
+}
+```
+
+
+## OCSF Conversion
+
+The following JQ transformation converts Google Cloud Logs data to OCSF Version 1.1 compliant format.
+
+The transformation is provided as a starting point and can be modified to accommodate specific needs:
+
+```jq
+{
+  "category_uid": 6,
+  "class_uid": 6003,
+  "activity_id": 0,
+  "severity_id": (
+    if .severity == "DEFAULT" then 0 
+    elif .severity == "DEBUG" then 1 
+    elif .severity == "INFO" then 2 
+    elif .severity == "NOTICE" then 3 
+    elif .severity == "WARNING" then 4 
+    elif .severity == "ERROR" then 5 
+    elif .severity == "CRITICAL" then 6 
+    elif .severity == "ALERT" then 6 
+    elif .severity == "EMERGENCY" then 6 
+    else 99 
+    end
+  ),
+  "severity": .severity,
+  "type_uid": 0,
+  "time": (.timestamp | fromdateiso8601),
+  "actor": {
+    "user": {
+      "ip_addr": .protoPayload.requestMetadata.callerIp,
+      "user_agent": .protoPayload.requestMetadata.callerSuppliedUserAgent
+    }
+  },
+  "cloud": {
+    "provider": "GCP",
+    "account": {
+      "name": .resource.labels.project_id
+    },
+    "zone": .resource.labels.zone
+  },
+  "api": {
+    "operation": .protoPayload.methodName,
+    "service": {
+      "name": .protoPayload.serviceName
+    }
+  },
+  "src_endpoint": {
+    "ip": .protoPayload.requestMetadata.callerIp
+  },
+  "resources": [
+    {
+      "type": .resource.type,
+      "name": .protoPayload.resourceName,
+      "attributes": {
+        "instance_id": .resource.labels.instance_id,
+        "project_id": .resource.labels.project_id,
+        "zone": .resource.labels.zone
+      }
+    }
+  ],
+  "metadata": {
+    "labels": [
+      "log_name=" + .logName,
+      "insert_id=" + .insertId
+    ],
+    "product": {
+      "name": "Google Cloud Platform",
+      "vendor_name": "Google"
+    },
+    "version": "1.0.0"
+  }
+}
+```
+
+## OCSF Mapping Details
+
+The JQ transformation converts Google Cloud Logs to OCSF Version 1.1 with key mappings:
+
+- **Category**: Dynamically extracted from the method name
+   - Takes the second part of the method name (e.g., "compute" from "v1.compute.instances.insert")
+- **Type**: Derived directly from the method name's last component
+   - Captures the specific action (e.g., "instances", "insert")
+- **Class**: Mapped to Identity & Access Management (Class UID: 6003)
+- **Severity**: Converted to numerical IDs (0-6 scale)
+   - Provides a standardized severity representation
+- **Cloud Provider**: Explicitly set to "GCP"
+- **Actor Information**:
+   - Captures caller IP address
+   - Extracts user agent details
+- **Resource Details**:
+   - Includes project ID
+   - Captures zone information
+   - Uses native resource type from the log entry
+
+### Customization
+The transformation serves as a starting point and can be modified to accommodate specific logging requirements while maintaining OCSF compliance. Key aspects like category extraction and type mapping can be easily adjusted to fit specific use cases.

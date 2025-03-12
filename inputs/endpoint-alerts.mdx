@@ -1,0 +1,97 @@
+---
+title: Microsoft Defender for Endpoint - Alerts 
+description: >
+ Retrieves a list of all alerts from Microsoft Defender for Endpoint
+---
+
+## Prerequisites
+
+Before setting up the Microsoft Azure Activity Logs input, ensure the following:
+
+1. Have a Microsoft Account with an active Azure Subscription.
+2. [Microsoft Defender for Endpoint P2 License.](https://learn.microsoft.com/en-us/defender-endpoint/microsoft-defender-endpoint)
+3. [Setup Microsoft Defender for Endpoint deployment.](https://learn.microsoft.com/en-us/defender-endpoint/production-deployment)
+4. Reader permissions granted to the application for Alerts from WindowsDefenderATP (steps given below).
+5. Reader permissions granted to the application from the Logs Analytics Workspace (steps given below).
+
+
+## Setting up API Access
+
+1. Registering a new application
+    1. Open the [App Registration](https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade) page in the Azure portal.
+    2. Select New Registration
+    3. Add a name to the new registration
+    4. Click Register
+    5. Save the applications `Application (client) ID` and `Directory (tenant) ID`
+    6. Select Certificates and Secrets
+    7. Click link next to Client credentials
+    8. In "Client secrets" click "New client secret"
+    9. Add a name and expiration to the new secret
+    10. Save the client secret value
+2. Give application access to Reading Alerts from WindowsDefenderATP
+    1. Click "API Permissions" on left sidebar
+    2. Click "Add Permission"
+    3. Click "APIs my organization uses"
+    4. Select "Application Permissions"
+    5. Select "Alert.Read.All"
+3. Grant access to your log analytics workspace
+    1. Navigate to the [log analytics workspace](https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.OperationalInsights%2Fworkspaces)
+    2. Select the workspace
+    3. Click "Access control (IAM)" on the left menu
+    4. Select "Add Role Assignment" from the "+ Add" menu
+    5. Select the `Reader` role and click Next
+    6. Click "Select members"
+    7. Search for the new application name and click Select
+    8. Click "Review + assign"
+    9. Confirm by clicking "Review + assign"
+
+## Related Articles
+
+- [Setting up an application](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/api/register-app-for-token?tabs=portal)
+- [Microsoft Alerts API](https://learn.microsoft.com/en-us/defender-endpoint/api/get-alerts)
+- [Permissions for access to Alerts API](https://learn.microsoft.com/en-us/defender-endpoint/api/get-alerts#permissions)
+
+## Configuration
+
+### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Tenant ID | string | true | The tenant ID of the Azure AD application |
+| Category | string | false | Represents the type of threat or suspicious activity (e.g., malware, phishing) to filter alerts based on their nature. |
+| Severity | string | false | Indicates the criticality level of an alert (e.g., low, high) to prioritize response actions. |
+
+
+### Secrets
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Client ID | string | true | The client ID of the Azure AD application |
+| Client Secret | string | true | The client secret of the Azure AD application |
+
+## API
+
+To send a `POST` request to create this Alerts Connector:
+
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "config": {
+    "secrets": {
+      "client_id": "sample_client_id",
+      "client_secret": "sample_client_secret"
+    },
+    "settings": {
+      "tenant_id": "sample_tenant_id"
+    }
+  },
+  "description": "input_description",
+  "name": "input_name",
+  "promise_id": "",
+  "type": "endpoint-alerts"
+}'
+```

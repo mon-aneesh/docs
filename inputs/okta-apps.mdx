@@ -1,0 +1,87 @@
+---
+title: Okta Apps
+description: >
+  Fetches insights of applications assigned to your Okta organization including assigned users, groups, and application metadata.
+---
+
+### Details
+Monad uses the `cron` field to run this input on specific intervals and returns all applications' details, performing a full sync of data each time.
+### Prerequisites
+- Before you connect Monad to Okta, you need an API token. API tokens are scoped to include all applications from a specific account in Okta.
+- Instructions [Here](https://developer.okta.com/docs/guides/create-an-api-token/main/).
+- Get your Okta organization name: 
+- In most cases, your organization name is simply your company name. However, you can also extract the organization name from your url.
+- Go to the Okta admin dashboard.
+- Extract your Okta org name from your url. If your url is https://companyname-admin.okta.com/admin/dashboard then your org. name is companyname. There are some slight variations on the Org.
+- URLs so it could be that your URL could be https://companyname.okta.com or https://companyname.okta-emea.com. Still your org name in those cases would be companyname.
+- More details and edgecases mentioned [here](https://developer.okta.com/docs/concepts/okta-organizations/#org-urls).
+[setup documentation](https://help.okta.com/en-us/content/topics/security/api.htm)
+### Related Articles
+- [https://developer.okta.com/docs/reference/api/apps/#list-applications](https://developer.okta.com/docs/reference/api/apps/#list-applications)
+
+## Configuration
+
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Org URL | string | Yes | Your Okta Organization URL. |
+| Cron | string | Yes | A cron expression defining how often to fetch user data. |
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| API Key | string | Yes | Your Okta API Key. |
+
+## API
+
+To send a `POST` request to create this Okta Connector:
+
+```bash
+curl -X 'POST' \
+ '{base_url}/api/v2/{org_id}/inputs' \
+ -H 'accept: application/json' \
+ -H 'Authorization: Bearer {token}' \
+ -H 'Content-Type: application/json' \
+ -d '{
+ "config": {
+   "secrets": {
+     "api_key": {
+       "name": "Okta API Key",
+       "description": "API key for Okta authentication",
+       "value": "api_key"
+     }
+   },
+   "settings": {
+     "org_url": "org_url"
+     "cron": "your_cron_for_scheduled_ingest"
+   }
+ },
+ "description": "input_description",
+ "name": "input_name",
+ "promise_id": "",
+ "type": "okta-apps"
+}'
+```
+
+## Custom Schema Handling
+
+If the source data doesn't align with any of the [OpenSecurityControlFramework (OSCF) schemas](https://github.com/ocsf), you can create a custom transformation using our JQ transform pipeline. For example:
+
+```jq
+{
+  metadata: {
+    schema_version: "1.0.0",
+    custom_framework: "my_framework"
+  },
+  controls: .[]
+}
+```
+
+For more information on JQ and how to write your own JQ transformations see the JQ docs [here](https://jqlang.github.io/jq/)
+
+If you believe this data source should be included in the standard OSCF schema set, please reach out to our team at [support@monad.com](mailto:support@monad.com). We're always looking to expand our coverage of security control frameworks based on community needs.
+

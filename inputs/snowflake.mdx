@@ -1,0 +1,104 @@
+---
+title: Snowflake
+date: 2024-02-14
+description: >
+  Loads data from Snowflake tables using a combination of cron scheduling and timestamp-based tracking, offering flexible options for full or incremental data syncs.
+---
+
+## Details
+Monad connects to your Snowflake instance and loads data based on your specified schedule. The connector supports two sync methods:
+
+1. **Incremental Sync**: When a timestamp column is provided, Monad tracks the latest processed timestamp and only fetches new or updated records since the last sync.
+
+2. **Full Sync**: Without a timestamp column, Monad performs a complete table sync on each scheduled run.
+
+## Prerequisites
+Before connecting Monad to Snowflake, you need to:
+
+1. Create a service account in Snowflake:
+```sql
+CREATE USER monad_service_account
+    COMMENT = 'Service account for monad snowflake input'
+    TYPE = 'service'
+    RSA_PUBLIC_KEY='Your RSA Public Key';
+```
+
+2. Create and grant necessary permissions:
+```sql
+CREATE ROLE MONAD_READER_ROLE;
+GRANT USAGE ON WAREHOUSE your_warehouse TO ROLE MONAD_READER_ROLE;
+GRANT USAGE ON DATABASE your_database TO ROLE MONAD_READER_ROLE;
+GRANT USAGE ON SCHEMA your_schema TO ROLE MONAD_READER_ROLE;
+GRANT SELECT ON ALL TABLES IN SCHEMA your_schema TO ROLE MONAD_READER_ROLE;
+GRANT SELECT ON FUTURE TABLES IN SCHEMA your_schema TO ROLE MONAD_READER_ROLE;
+GRANT ROLE MONAD_READER_ROLE TO USER monad_service_account;
+```
+
+3. Optionally, add USAGE permission on future schemas if needed:
+```sql
+GRANT USAGE ON FUTURE SCHEMAS IN DATABASE your_database TO ROLE MONAD_READER_ROLE;
+```
+
+## Configuration
+The following configuration defines the input parameters. Each field's specifications are detailed below.
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Account | string | Yes | The unique identifier for your Snowflake account (e.g., 'organization-account_name') |
+| User | string | Yes | The username of the Snowflake service account |
+| Database | string | Yes | The name of the Snowflake database to connect to |
+| Warehouse | string | Yes | The Snowflake virtual warehouse for executing queries |
+| Schema | string | Yes | The schema within the Snowflake database |
+| Table | string | No | The name of the table to query data from (required if no custom query) |
+| Role | string | Yes | The role name granted to the service account |
+| Timestamp Column | string | Yes | The column containing timestamp values for incremental loading |
+| Custom Query | string | No | Optional custom query (must include timestamp_column) |
+| Authentication Type | string | Yes | Authentication method: "password" or "private key" (default: "private key") |
+| Cron | string | Yes | Cron expression defining the sync schedule (e.g., "0 * * * *" for hourly) |
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| Private Key | string | Conditional | The private key used for authentication (required if using private key auth) |
+| Password | string | Conditional | The user's password (required if using password auth) |
+
+## API
+
+To send a `POST` request to create this Snowflake Connector:
+
+```bash
+curl -X 'POST' \
+ '{base_url}/api/v2/{org_id}/inputs' \
+ -H 'accept: application/json' \
+ -H 'Authorization: Bearer {token}' \
+ -H 'Content-Type: application/json' \
+ -d '{
+ "config": {
+   "secrets": {
+     "private_key": {
+       "name": "Snowflake Private Key",
+       "description": "Private key for authentication",
+       "value": "your_private_key"
+     }
+   },
+   "settings": {
+     "account": "your_account",
+     "user": "monad_service_account",
+     "database": "your_database",
+     "warehouse": "your_warehouse",
+     "schema": "your_schema",
+     "table": "your_table",
+     "role": "MONAD_READER_ROLE",
+     "timestamp_column": "updated_at",
+     "auth_type": "private key",
+     "cron": "0 * * * *"
+   }
+ },
+ "description": "Snowflake incremental data loader",
+ "name": "snowflake_incremental",
+ "type": "snowflake-incremental"
+}'
+```

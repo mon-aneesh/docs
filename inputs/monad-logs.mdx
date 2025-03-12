@@ -1,0 +1,181 @@
+---
+title: Monad Logs
+description: Monad Logs input for collecting and monitoring logs from your Monad organization, enabling you to track actions performed and identify issues within your pipelines.
+---
+
+## Details
+The Monad Logs input retrieves logs from your Monad organization, allowing you to monitor activities and detect potential issues in your pipelines. This input leverages NATS JetStream to consume logs efficiently and can resume from the last processed log, ensuring no data is lost between executions.
+
+## Prerequisites
+- You must have an active Monad organization.
+- Proper access permissions to retrieve organization logs are required.
+
+## Implementation
+The Monad Logs input is designed to seamlessly integrate with your Monad organization. Once configured, it automatically retrieves logs from your organization, ensuring that you have a continuous and up-to-date view of all actions and issues within your pipelines.
+
+This input operates efficiently, processing logs in real-time while maintaining a record of the last retrieved log to prevent any data loss. It handles errors gracefully and ensures that your logging data is always consistent and accurate.
+
+Whether you're monitoring ongoing activities or troubleshooting pipeline issues, the Monad Logs input provides a reliable and straightforward solution for log management.
+
+NOTE: Monad keeps track of the last 1,000 logs per pipeline node and 1,000 logs for API activity. Once the limit is reached, the oldest logs are removed to make room for new logs.
+
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+| Setting | Type | Required | Default | Description |
+|---------|------|----------|---------|-------------|
+| Log Type | string | Yes | "All" | Select which types of logs to collect: API Logs track all API calls made to your Monad organization, Pipeline Logs show execution details from your pipeline nodes, or choose All Logs to collect both types. Possible values: "API", "Pipeline", "All" |
+
+#### Secrets
+
+None.
+
+## API
+
+To send a `POST` request to create this Monad Logs Connector:
+
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "config": {
+    "secrets": {},
+    "settings": {
+      "log_type": "All"
+    }
+  },
+  "description": "input_description",
+  "name": "input_name",
+  "promise_id": "",
+  "type": "monad-logs"
+}'
+```
+
+# OCSF Conversion
+
+The following JQ transformation converts Monad API Logs data to OCSF Version 1.0.0 compliant format.
+
+## JQ Transformation
+```jq
+{
+  activity_id: (
+    if .method == "GET" then 2      # Read
+    elif .method == "POST" then 1    # Create
+    elif .method == "PATCH" then 3   # Update
+    elif .method == "PUT" then 3     # Update
+    elif .method == "DELETE" then 4  # Delete
+    else 99                         # Other
+    end
+  ),
+  time: (.timestamp | split(".")[0] + "Z" | fromdate * 1000),
+  actor: {
+    user: {
+      email: .actor
+    }
+  },
+  api: {
+    operation: .method,
+    request: {
+      uid: .id,
+      protocol: "HTTP",
+      method: .method,
+      url: .resource
+    },
+    response: {
+      status_code: .status
+    }
+  },
+  auth: {
+    mechanism: .auth_method
+  },
+  src_endpoint: {
+    ip: .client_ip
+  },
+  user_agent: .client_info,
+  metadata: {
+    product: {
+      name: "Monad",
+      version: .log_version,
+      vendor_name: "Monad"
+    },
+    version: "1.0.0"
+  },
+  cloud: {
+    provider: "Monad"
+  },
+  severity_id: 0,
+  type_uid: (6003 * 100 + (
+    if .method == "GET" then 2      # Read
+    elif .method == "POST" then 1    # Create
+    elif .method == "PATCH" then 3   # Update
+    elif .method == "PUT" then 3     # Update
+    elif .method == "DELETE" then 4  # Delete
+    else 99                         # Other
+    end
+  )),
+  category_uid: 6,
+  class_uid: 6003,
+}
+```
+
+## OCSF Mapping Details
+
+The JQ transformation converts Monad Logs to OCSF Version 1.0.0 with the following key mappings:
+
+### Core Fields
+- **Class UID**: Set to 6003 (API Activity)
+- **Category UID**: Set to 6 (Activity)
+- **Type UID**: Dynamically calculated based on HTTP method:
+    - GET → 600302 (Read)
+    - POST → 600301 (Create)
+    - PATCH/PUT → 600303 (Update)
+    - DELETE → 600304 (Delete)
+    - Others → 600399 (Other)
+- **Activity ID**: Mapped from HTTP method:
+    - GET → 2 (Read)
+    - POST → 1 (Create)
+    - PATCH/PUT → 3 (Update)
+    - DELETE → 4 (Delete)
+    - Others → 99 (Other)
+- **Time**: Converted from timestamp with milliseconds stripped
+- **Severity ID**: Set to 0 (Informational)
+
+### Actor Information
+- **User Email**: Maps from actor field
+
+### API Details
+- **Operation**: Maps from HTTP method
+- **Request Information**:
+    - UID: Maps from request ID
+    - Protocol: Set to "HTTP"
+    - Method: Maps from HTTP method
+    - URL: Maps from resource path
+- **Response Information**:
+    - Status Code: Maps from status field
+
+### Authentication
+- **Mechanism**: Maps from auth_method field
+
+### Endpoint Information
+- **Source IP**: Maps from client_ip field
+
+### Additional Information
+- **User Agent**: Maps from client_info field
+
+### Cloud Information
+- **Provider**: Set to "Monad"
+
+### Metadata
+- **Version**: Set to "1.0.0"
+- **Product**:
+    - Name: "Monad"
+    - Version: Maps from log_version
+    - Vendor Name: "Monad"
+
+### Customization
+The transformation serves as a starting point and can be modified to accommodate specific requirements while maintaining OCSF compliance. The mapping prioritizes essential API activity information while providing appropriate values for required OCSF fields.

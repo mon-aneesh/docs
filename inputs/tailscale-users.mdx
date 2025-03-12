@@ -1,0 +1,103 @@
+---
+title: Tailscale Users
+description: >
+  Monad uses the cron field to run this input on specific intervals and returns all users' details, performing a full sync of data each time.
+---
+
+## Details
+Monad uses the `cron` field to run this input on specific intervals and returns all users' details, performing a full sync of data each time.
+
+## Prerequisites
+- Before you connect Monad to Tailscale, you need access to your Tailscale account.
+- This connection requires an OAuth Client to be created.
+- Instructions [Here](https://login.tailscale.com/admin/settings/oauth).
+  - Open the [OAuth clients](https://login.tailscale.com/admin/settings/oauth) page of the admin console.
+  - In the Generate OAuth client page, Select `users:read` scope.
+  - Select Generate client.
+  - In the Generated new OAuth client page, you can see the new OAuth client's ID and secret. Copy both the client ID and secret, as you need them to create the input in Monad. Note that after you close the Generated new OAuth client page, you won't be able to copy the secret again.
+  - Select Done.
+- Your OAuth client is now configured. Use the client ID and secret when you configure your Monad input.
+- You can view your [Organization name](https://tailscale.com/kb/1217/tailnet-name#organization-name) in the [Settings](https://login.tailscale.com/admin/settings) page of the admin console. Leave the field blank if you want users from default organization.
+
+
+## Related Articles
+- [https://tailscale.com/api#description/overview](https://tailscale.com/api#description/overview)
+- [https://tailscale.com/api#tag/users/GET/tailnet/{tailnet}/users](https://tailscale.com/api#tag/users/GET/tailnet/{tailnet}/users)
+
+## Configuration
+
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+| Setting                   | Type   | Required | Description                                              |
+| ------------------------- | ------ | -------- | -------------------------------------------------------- |
+| Tailscale Organization ID | string | Yes      | Your Tailscale Organization Name.                        |
+| User Role                 | string | Yes      | Allows for filtering the output by user role.             |
+| User Type                 | string | Yes      | Allows for filtering the output by user type             |
+| Cron                      | string | Yes      | A cron expression defining how often to fetch user data. |
+
+#### Secrets
+
+| Secret        | Type   | Required | Description                         |
+| ------------- | ------ | -------- | ----------------------------------- |
+| Client ID     | string | Yes      | Your Tailscale oauth Client ID.     |
+| Client Secret | string | Yes      | Your Tailscale oauth Client Secret. |
+
+## API
+
+To send a `POST` request to create this Tailscale Users Connector.
+
+
+NOTE: This curl command will create new secrets. If you wish to use and existing secret you've already created you can pass the id filed instead of name, value, and description.
+
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "config": {
+    "secrets": {
+      "client_id": {
+       "name": "Tailscale Client ID",
+       "description": "Tailscale Client ID",
+       "value": "client_id"
+     },
+     "client_secret": {
+       "name": "Tailscale Client ID",
+       "description": "Tailscale Client ID",
+       "value": "client_secret"
+     }
+    },
+    "settings": {
+      "organization_id": "org_url",
+      "user_role_option": "one of `owner` `member` `admin` `it-admin` `network-admin` `billing-admin` `auditor` or `all`",
+      "user_type_option": "one of `member` `shared` or `all`"
+      "cron": "your_cron_for_scheduled_ingest"
+    }
+  },
+  "description": "input_description",
+  "name": "input_name",
+  "promise_id": "",
+  "type": "tailscale-users"
+}'
+```
+## Custom Schema Handling
+
+If the source data doesn't align with any of the [OpenSecurityControlFramework (OSCF) schemas](https://github.com/ocsf), you can create a custom transformation using our JQ transform pipeline. For example:
+
+```jq
+{
+  metadata: {
+    schema_version: "1.0.0",
+    custom_framework: "my_framework"
+  },
+  controls: .[]
+}
+```
+
+For more information on JQ and how to write your own JQ transformations see the JQ docs [here](https://jqlang.github.io/jq/)
+
+If you believe this data source should be included in the standard OSCF schema set, please reach out to our team at [support@monad.com](mailto:support@monad.com). We're always looking to expand our coverage of security control frameworks based on community needs.

@@ -1,0 +1,149 @@
+---
+title: MongoDB Events
+description: >
+  Returns all events for the specified organization. Events identify significant database, billing, or security activities or status changes.
+---
+
+## Details
+Monad uses the `minDate` on the [api](https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/#tag/Events/operation/listOrganizationEvents) to determine what events to display. This field is updated every time a request to get event logs is successful with the last time a request to get the logs was initiated. If this was the first time requesting for event logs, a full sync of the data is performed.
+
+## Prerequisites
+
+***Before you connect Monad to MongoDB, you have to pick your authentication method: Service Accounts (Preview feature in MongoDB) or API Keys. [Read More](https://www.mongodb.com/docs/atlas/api/api-authentication/)*** 
+
+- To perform the following actions, you must have Organization Owner access to Atlas.
+
+**API Keys:**
+
+1. In Atlas, go to the Organization Access Manager page.
+If it's not already displayed, select your desired organization from the  Organizations menu in the navigation bar.
+
+Do one of the following steps:
+
+- Select Organization Access from the Access Manager menu in the navigation bar.
+
+- Click Access Manager in the sidebar.
+
+The Organization Access Manager page displays.
+
+2. Click Add new  API Key.
+3. Enter the API Key Information. 
+
+- In the Organization Permissions menu, select the new role or roles for the API key.
+
+4. Click Next.
+5. Copy and save the Public Key.
+The public key acts as the username when making API requests.
+
+6. Copy and save the Private Key.
+The private key acts as the password when making API requests.
+
+7. Add an API Access List Entry.
+- Click Add Access list Entry.
+
+- Enter an IP address or CIDR block from which you want Atlas to accept API requests for this API Key.
+
+- You can also click Use Current IP Address if the host you are using to access Atlas will also make API requests using this API Key.
+
+- Click Save.
+
+8. Click Done.
+
+**Service Account (Preview Feature):**
+
+1. In Atlas, go to the Organization Access Manager page.
+If it's not already displayed, select your desired organization from the  Organizations menu in the navigation bar.
+
+Do one of the following steps:
+
+- Select Organization Access from the Access Manager menu in the navigation bar.
+
+- Click Access Manager in the sidebar.
+
+The Organization Access Manager page displays.
+
+2. Click Add new  Service Account.
+3. Enter the service account information. 
+- From the Organization Permissions menu, select the new role or roles for the service account.
+
+4. Click Create.
+5. Copy and save the Client Secret.
+The client secret acts as the password when creating access tokens.
+
+Click Save.
+
+## Related Articles
+- [https://www.mongodb.com/docs/atlas/configure-api-access/#std-label-atlas-admin-api-access](https://www.mongodb.com/docs/atlas/configure-api-access/#std-label-atlas-admin-api-access)
+- [https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/](https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/)
+
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+None.
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| Client ID | string | No | Client ID for the MongoDB API. This is required to authenticate requests. |
+| Client Secret | string | No | Client Secret for the MongoDB API. This is required to authenticate requests. |
+| Public Key | string | No | Public Key for the MongoDB API. This is used for digest based authentication for requests. |
+| Private Key | string | No | Private Key for the MongoDB API. This is used for digest based authentication for requests. |
+
+**Note**: If both authentication credentials (Client ID and Client Secret **and** Public Key & Private Key) are provided, Monad will default to using the Client ID & Secret.
+
+## API
+
+To send a `POST` request to create this Crowdstrike Connector:
+
+```bash
+curl -X 'POST' \
+ '{base_url}/api/v2/{org_id}/inputs' \
+ -H 'accept: application/json' \
+ -H 'Authorization: Bearer {token}' \
+ -H 'Content-Type: application/json' \
+ -d '{
+ "config": {
+   "secrets": {
+     "client_id": {
+       "name": "MongoDB Client ID",
+       "description": "Client ID for MongoDB authentication",
+       "value": "mongodb_client_id"
+     },
+     "client_secret": {
+       "name": "MongoDB Client Secret", 
+       "description": "Client secret for MongoDB authentication",
+       "value": "mongodb_client_secret"
+     }
+   },
+   "settings": {
+       "host": "your_duo_host"
+   }
+ },
+ "description": "input_description",
+ "name": "input_name",
+ "promise_id": "",
+ "type": "mongodb-org-events"
+}'
+```
+
+## Custom Schema Handling
+
+If the source data doesn't align with any of the [OpenSecurityControlFramework (OSCF) schemas](https://github.com/ocsf), you can create a custom transformation using our JQ transform pipeline. For example:
+
+```jq
+{
+  metadata: {
+    schema_version: "1.0.0",
+    custom_framework: "my_framework"
+  },
+  controls: .[]
+}
+```
+
+For more information on JQ and how to write your own JQ transformations see the JQ docs [here](https://jqlang.github.io/jq/)
+
+If you believe this data source should be included in the standard OSCF schema set, please reach out to our team at [support@monad.com](mailto:support@monad.com). We're always looking to expand our coverage of security control frameworks based on community needs.
+

@@ -1,0 +1,80 @@
+---
+title: Box User And Enterprise Events
+description: >
+  Returns up to a year of past events for a given user or for the entire enterprise.
+---
+
+## Details
+Monad uses the `created_after` as a part of the query parameters on the [api](https://developer.box.com/reference/get-events) to determine what events to display. This field is updated every time a request to get events is successful with the time of the latest event generated. If this was the first time requesting for events, a full sync of the data is performed.
+
+## Prerequisites
+- Before you connect Monad to Box, you need access to a Box account, [Business plan or higher](https://www.box.com/pricing). **Note**: Purchasing just a business plan (lowest tier) limits your ability on parameters you can use for the Box users input. Read the configuration section for more details.
+- After purchasing an appropriate plan, you now need to obtain your Client ID, Client Secret, and Enterprise ID:
+  - Navigate to the Developer Console from your Box user dashboard (Requires Admin/Co-Admin Access to the enterprise)
+  - Create a Platform app (Custom app) if you don't have one with appropriate fields filled out from the Developer dashboard
+  - Retrieve your Enterprise ID from the 'General settings' by choosing the right app from the developer dashboard in the 'My Platform Apps' section.
+  - Go to the 'Configuration' after choosing the right app from the developer dashboard in the 'My Platform Apps' section, and scroll down to 'OAuth 2.0 Credentials' section, and setup 2FA if required, after which obtain your Client ID and Client Secret to connect Box to Monad.
+  - Ensure that the app has "App + Enterprise Access" from the Configuration tab.
+
+## Related Articles
+
+[https://developer.box.com/reference/](https://developer.box.com/reference/)
+[https://developer.box.com/reference/get-events](https://developer.box.com/reference/get-events)
+
+
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Event Type | string | No | A list of event types to filter by. |
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| Client ID | string | Yes | Client ID for the Box API. This is required to authenticate requests. |
+| Client Secret | string | Yes | Client Secret for the Box API. This is required to authenticate requests. |
+| Enterprise ID | string | Yes | Enterprise ID for the Box API. This is required to authenticate requests. |
+
+## API
+
+To send a `POST` request to create this Box Connector:
+
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'Accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "config": {
+      "secrets": {
+        "client_id": {
+          "name": "Box Client ID",
+          "description": "Box API client identifier",
+          "value": "<CLIENT_ID>"
+        },
+        "client_secret": {
+          "name": "Box Client Secret",
+          "description": "Box API client secret",
+          "value": "<CLIENT_SECRET>"
+        },
+        "enterprise_id": {
+          "name": "Box Enterprise ID",
+          "description": "Box enterprise identifier",
+          "value": "<ENTERPRISE_ID>"
+        }
+      },
+      "settings": {}
+    },
+    "description": "<YOUR_INPUT_DESCRIPTION>",
+    "name": "<YOUR_INPUT_NAME>",
+    "promise_id": "",
+    "type": "box-events"
+  }'
+```
+
+

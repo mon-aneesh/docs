@@ -1,0 +1,220 @@
+---
+title: Demo - Custom Template
+description: >
+   Generates random events based on a custom template provided.
+---
+
+## Details
+This demo input connector generates simulated data from Okta System Logs / Tenable Assets / Tenable Vulnerabilities
+## Prerequisites
+- The Demo connector does not require any credentials, making it a straightforward plug-and-play connector.
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Rate | int | Yes | The rate at which to generate records (between 1 and 1000) per second. |
+| Custom Template | string | Yes | A custom template using the functions we provide to generate demo data. |
+
+#### Secrets
+
+None.
+
+## API
+
+To send a `POST` request to create this Demo Connector:
+
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "config": {
+    "secrets": {},
+    "settings": {
+      "rate": 1000,
+      "custom_template": ""
+    }
+  },
+  "description": "input_description",
+  "name": "input_name",
+  "promise_id": "",
+  "type": "demo"
+}'
+```
+
+## Supported functions for custom templates with examples
+
+Given below are functions we support - indiciated in "{{ function_name }}". Uploading a custom demo template using these functions would allow you to to generate demo data. 
+
+1. **randomPublicIP** - Generates a random public IP addresss
+
+```json
+{
+    "ipAddress": "{{ randomPublicIP }}"  // e.g., "203.0.113.42"
+}
+```
+
+2. **randomUserAgent** - Returns a random browser user agent
+
+```json
+{
+    "userAgent": "{{ randomUserAgent }}"  // e.g., "Mozilla/5.0 (Windows NT 10.0; Win64; x64)..."
+}
+```
+
+3. **randomInt** - Generates a random integer between min and max
+
+```json
+{
+    "score": "{{ randomInt 1 100 }}"  // e.g., "75"
+}
+```
+
+4. **randomIPSet** - Returns a random IP from a predefined set
+
+```json
+{
+    "staticIP": "{{ randomIPSet }}"  // e.g., "8.8.8.8"
+}
+```
+
+5. **randomName** - Generates a random full name
+
+```json
+{
+    "name": "{{ randomName }}"  // e.g., "John Smith"
+}
+```
+
+6. **randomSUCCESSorFAILURE** - Returns either "SUCCESS" or "FAILURE"
+
+```json
+{
+    "status": "{{ randomSUCCESSorFAILURE }}"  // e.g., "SUCCESS"
+}
+```
+
+7. **uuid** - Generates a random UUID
+
+```json
+{
+    "id": "{{ uuid }}"  // e.g., "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+5. **randomPrivateIP** - Generates a random private IP address
+
+```json
+{
+    "internalIP": "{{ randomPrivateIP }}"  // e.g., "192.168.1.100"
+}
+```
+
+6. **randomFloatFromList** - Returns a random float from provided list
+
+```json
+{
+    "price": "{{ randomFloatFromList 10.99 15.99 20.99 }}"  // e.g., 15.99
+}
+```
+
+7. **randomStringFromList** - Returns a random string from provided list
+
+```json
+{
+    "color": "{{ randomStringFromList \"red\" \"blue\" \"green\" }}"  // e.g., "blue"
+}
+```
+
+8. **randomBool** - Returns a random boolean value
+
+```json
+{
+    "isActive": "{{ randomBool }}"  // e.g., true or false
+}
+```
+
+9. **timestampUnixMiliSeconds** - Current Unix timestamp in milliseconds
+
+```json
+{
+    "unixTimeMS": "{{ timestampUnixMiliSeconds }}"  // e.g., "1699459445000"
+}
+```
+
+10. **timestampDateTime** - Current timestamp as DateTime
+
+```json
+{
+    "dateTime": "{{ timestampDateTime }}"  // e.g., "2024-11-08T15:04:05.000Z"
+}
+```
+
+11. **timestampUnix** - Current Unix timestamp
+
+```json
+{
+    "unixTime": "{{ timestampUnix }}"  // e.g., "1699459445"
+}
+```
+
+12. **timestampCurrentDate** - Current date in YYYY-MM-DD format
+
+```json
+{
+    "date": "{{ timestampCurrentDate }}"  // e.g., "2024-11-08"
+}
+```
+
+13. **timestampISO8601** - Current timestamp in ISO8601 format with milliseconds
+
+```json
+{
+    "timestamp": "{{ timestampISO8601 }}"  // e.g., "2024-11-08T15:04:05.999999Z"
+}
+```
+
+14. **timestampRFC3339** - Current timestamp in RFC3339 format
+
+```json
+{
+    "timestamp": "{{ timestampRFC3339 }}"  // e.g., "2024-11-08T15:04:05Z07:00"
+}
+```
+
+15. **loremIpsum** - Generates Lorem Ipsum text with specified word count
+
+```json
+{
+    "description": "{{ loremIpsum 10 }}"  // e.g., "lorem ipsum dolor sit amet..."
+}
+```
+
+16. **randomSystemType** - Returns a random system type
+
+```json
+{
+    "systemType": "{{ randomSystemType }}"  // e.g., "Laptop"
+}
+```
+
+17. **randomOS** - Returns a random operating system name
+
+```json
+{
+    "operatingSystem": "{{ randomOS }}"  // e.g., "Windows 10"
+}
+```
+
+18. **randomMACAddress** - Generates a random MAC address
+
+```json
+{
+    "macAddress": "{{ randomMACAddress }}"  // e.g., "00:1A:2B:3C:4D:5E"
+}
+```

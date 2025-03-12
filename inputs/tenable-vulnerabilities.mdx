@@ -1,0 +1,151 @@
+---
+title: Tenable Vulnerabilities
+description: >
+  Retrieves vulnerability data and associated metadata for assets from Tenable, including details like CVE identifiers, CVSS scores, descriptions, solution information, and affected systems.
+---
+
+### Details
+Monad uses the `since` filter on the [api](https://developer.tenable.com/reference/exports-vulns-request-export) and no others to determine which vulnerabilities to export. This field is updated every time the export is successful with the last export initiation time. as per the tenable documentation linked above... If you do not include the state filter in your request(which we do not), the export includes data for OPEN and REOPENED vulnerabilities that were seen on or after the since date you specify, and FIXED vulnerabilities that were fixed on or after the since date you specify. This means if any vulnerabilities are updated beyond its state its updated data will not be included in the export.
+### Prerequisites
+- Log in to [Tenable.io](https://cloud.tenable.com/#/) and go to the [Create a service account](https://cloud.tenable.com/tio/app.html#/settings/users) page
+- Enter `Monad Service` as the name.
+- Fill out the rest of the service account fields using your organization's usual process.
+- Set the **Role** to `Scan Manager` and click **Finish**.
+- Click the new service user and select **Generate API Keys**.
+- Copy the access key and secret key. You'll need them when you set up the Monad connector.
+[setup documentation](https://docs.tenable.com/vulnerability-management/Content/Settings/access-control/CreateAUserAccount.htm)
+### Related Articles
+- [https://developer.tenable.com/reference/exports-vulns-download-chunk](https://developer.tenable.com/reference/exports-vulns-download-chunk)
+- [https://docs.tenable.com/vulnerability-management/Content/Settings/access-control/CreateAUserAccount.htm](https://docs.tenable.com/vulnerability-management/Content/Settings/access-control/CreateAUserAccount.htm)
+- [https://developer.tenable.com/reference/exports-vulns-request-export](https://developer.tenable.com/reference/exports-vulns-request-export)
+- [https://developer.tenable.com/reference/exports-vulns-export-status](https://developer.tenable.com/reference/exports-vulns-export-status)
+- [https://developer.tenable.com/reference/exports-vulns-download-chunk](https://developer.tenable.com/reference/exports-vulns-download-chunk)
+
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+
+None.
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| Access Key | string | Yes | Access Key for the Tenable API. This is required to authenticate requests. |
+| Secret Key | string | Yes | Secret Key for the Tenable API. This is required to authenticate requests. |
+
+## API
+
+To send a `POST` request to create this Tenable Connector:
+
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "config": {
+    "secrets": {
+      "access_key": {
+       "name": "Tenable Access Key",
+       "description": "Access key for Tenable authentication",
+       "value": "tenable_access_key"
+     },
+     "secret_key": {
+       "name": "Tenable Secret Key",
+       "description": "Secret key for Tenable authentication",
+       "value": "tenable_secret_key"
+     }
+    },
+    "settings": {}
+  },
+  "description": "input_description",
+  "name": "input_name",
+  "promise_id": "",
+  "type": "tenable-vulns"
+}'
+
+# OCSF Conversion
+```
+The following JQ transformation converts Tenable Vulnerability data to OCSF Version 1.0.0-rc.2 compliant format.
+
+## JQ Transformation
+```jq
+{
+  class_uid: 2002, #Vulnerability Finding
+  category_uid: 2, #Findings
+  type_uid: 200200, #Vulnerability Finding: Unknown
+  activity_id: 0, #Unknown
+  time: (.scan.started_at | gsub("\\.\\d+Z$"; "") | strptime("%Y-%m-%dT%H:%M:%S") | mktime),
+  severity_id: .severity_id,
+  metadata: {
+    version: "1.1.0",
+    product: {
+      vendor_name: "Tenable",
+      name: "Nessus"
+    }
+  },
+  raw_data: (. | tostring),
+  finding_info: {
+    title: .plugin.name,
+    uid: (.plugin.id | tostring),
+    last_seen_time: (.last_found | gsub("\\.\\d+Z$"; "") | strptime("%Y-%m-%dT%H:%M:%S") | mktime),
+    first_seen_time: (.first_found | gsub("\\.\\d+Z$"; "") | strptime("%Y-%m-%dT%H:%M:%S") | mktime)
+  },
+  vulnerabilities: [{
+    desc: .plugin.description,
+    name: .plugin.name,
+    uid: (.plugin.id | tostring),
+    cvss: {
+      version: "3.0",
+      vector: .plugin.cvss3_vector.raw,
+      base_score: .plugin.cvss3_base_score
+    },
+    remediation: {
+      desc: .plugin.solution
+    }
+  }]
+}
+```
+
+## OCSF Mapping Details
+
+The JQ transformation converts Tenable Vulnerabilities to OCSF Version 1.0.0-rc.2 with the following key mappings:
+
+### Core Fields
+- **Class UID**: Set to 2002 (Vulnerability Finding)
+- **Category UID**: Set to 2 (Findings)
+- **Type UID**: Set to 200200 (Vulnerability Finding: Unknown)
+- **Activity ID**: Set to 0 (Unknown)
+- **Time**: Extracted from the scan's `started_at` field
+    - Strips milliseconds from the ISO timestamp
+    - Converts to Unix timestamp format
+- **Severity ID**: Maps directly from the vulnerability's `severity_id`
+
+### Finding Information
+- **Title**: Maps from the plugin's name
+- **UID**: Converts the plugin ID to string format
+- **Last Seen Time**: Converts `last_found` timestamp to Unix format
+- **First Seen Time**: Converts `first_found` timestamp to Unix format
+
+### Vulnerability Details
+- **Description**: Maps from plugin description
+- **Name**: Maps from plugin name
+- **UID**: Plugin ID in string format
+- **CVSS Information**:
+    - Version: Set to "3.0"
+    - Vector: Maps from raw CVSS3 vector
+    - Base Score: Maps from CVSS3 base score
+- **Remediation**: Maps solution information from plugin
+
+### Metadata
+- **Version**: Set to "1.0.0-rc.2"
+- **Product**:
+    - Vendor name: "Tenable"
+    - Name: "Nessus"
+
+### Customization
+The transformation serves as a starting point and can be modified to accommodate specific requirements while maintaining OCSF compliance.
+The mapping prioritizes essential asset information and cloud provider detection while providing fallback values for optional fields.

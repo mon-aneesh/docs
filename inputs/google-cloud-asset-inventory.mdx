@@ -1,0 +1,135 @@
+---
+title: Google Cloud Asset Inventory
+description: >
+  Collects and ingests records from the Google Cloud Asset Inventory API.
+---
+
+# Google Cloud Asset Inventory Documentation
+
+## Description
+Google Cloud Asset Inventory is a powerful input component that enables the collection and ingestion of asset data from Google Cloud Platform environments. It provides comprehensive visibility into cloud resources across organizations, folders, and projects. The component supports scanning various asset types and can be configured to run on a scheduled basis. It is compatible with both organization and project-level scanning, making it suitable for both enterprise-wide and project-specific asset inventory needs.
+
+## Prerequisites
+
+### Required Permissions
+- Cloud Asset Viewer role (roles/cloudasset.viewer)
+- Security Reviewer role (roles/iam.securityReviewer)
+- Organization Viewer role (optional, for org hierarchy information)
+
+### IAM permissions
+Setting up IAM permissions in GCP can be complicated. However, we can greatly simplify the setup of a service account by using the gcloud cli tool, which is also available in the web console.
+
+```bash
+# Set your variables
+#projectID is the full name of your project, including the numerical value if applicable
+export PROJECT_ID="your-project-id"
+export SERVICE_ACCOUNT_NAME="asset-inventory-scanner"
+export SERVICE_ACCOUNT_DISPLAY_NAME="Cloud Asset Inventory Scanner"
+export ORGANIZATION_ID="your-org-id"
+
+# Create the service account
+gcloud iam service-accounts create $SERVICE_ACCOUNT_NAME \
+    --project=$PROJECT_ID \
+    --display-name="$SERVICE_ACCOUNT_DISPLAY_NAME" \
+    --description="Service account for Cloud Asset Inventory scanning"
+
+# Get the service account email
+export SERVICE_ACCOUNT_EMAIL="${SERVICE_ACCOUNT_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
+
+# Grant required roles
+gcloud organizations add-iam-policy-binding ${ORGANIZATION_ID} \
+    --member="serviceAccount:${SERVICE_ACCOUNT_EMAIL}" \
+    --role="roles/cloudasset.viewer"
+
+gcloud organizations add-iam-policy-binding ${ORGANIZATION_ID} \
+    --member="serviceAccount:${SERVICE_ACCOUNT_EMAIL}" \
+    --role="roles/iam.securityReviewer"
+
+gcloud organizations add-iam-policy-binding ${ORGANIZATION_ID} \
+    --member="serviceAccount:${SERVICE_ACCOUNT_EMAIL}" \
+    --role="roles/resourcemanager.organizationViewer"
+
+# Create and download the key
+gcloud iam service-accounts keys create asset-inventory-key.json \
+    --project=$PROJECT_ID \
+    --iam-account=${SERVICE_ACCOUNT_EMAIL}
+```
+
+## Configuration Options
+
+### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| resource_names | []string | Yes | The names of the resources to scan (organizations, projects or folders). resource names must be in the follow format "organizations/[organization-number]" (such as "organizations/123"), "projects/[project-id]" (such as "projects/my-project-id"), "projects/[project-number]" (such as "projects/12345"), or "folders/[folder-number]" (such as "folders/12345") |
+| asset_types | []string | No | The type of assets to scan for. If empty, scans all assets.  For a list of all asset types please see [https://cloud.google.com/asset-inventory/docs/asset-types] |
+| cron | string | Yes | Cron expression for scheduling the input |
+
+### Secrets
+
+| Secret | Type | Required | Description |
+|--------|------|----------|-------------|
+| credentials_json | string (base64) | Yes | JSON credentials to authenticate with Google Cloud |
+
+### Example Configuration
+
+```json
+{
+  "settings": {
+    "resource_names": ["organizations/123456789"],
+    "asset_types": ["compute.googleapis.com/Instance"],
+    "cron": "0 */6 * * *"
+  },
+  "secrets": {
+    "credentials_json": "<base64-encoded-credentials>"
+  }
+}
+```
+
+## Functionality
+The component operates by:
+1. Authenticating with Google Cloud using provided credentials
+2. Iterating through specified resource names (organizations/folders/projects)
+3. Querying the Cloud Asset Inventory API for specified asset types
+4. Processing and enriching asset data with additional metadata
+5. Streaming results through the data channel
+
+## Best Practices
+- Use organization-level scanning when possible for comprehensive visibility
+- Implement appropriate RBAC for service accounts
+- Schedule scans during off-peak hours
+- Filter asset types to reduce unnecessary data collection
+
+## Limitations
+- API quotas and rate limits apply
+- Some asset types may not be available at project level
+- Historical asset data limited by GCP retention policies
+
+## Troubleshooting
+### Common Issues
+- Insufficient IAM permissions
+- Invalid resource names
+- API quotas exceeded
+
+### Resolution Steps
+1. Verify service account permissions
+2. Validate resource name format
+3. Check API quotas in Cloud Console
+
+## API Reference
+This component uses the [Cloud Asset API v1](https://cloud.google.com/asset-inventory/docs/reference/rest)
+
+Endpoint: `https://cloudasset.googleapis.com/v1`
+
+## API Example
+```bash
+# List assets using curl
+curl -X GET \
+  -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  "https://cloudasset.googleapis.com/v1/organizations/{organization-id}/assets"
+```
+
+## Related Resources
+- [Cloud Asset Inventory Documentation](https://cloud.google.com/asset-inventory/docs)
+- [IAM Best Practices](https://cloud.google.com/iam/docs/best-practices)
+- [Asset Types Reference](https://cloud.google.com/asset-inventory/docs/supported-asset-types)

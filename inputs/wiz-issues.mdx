@@ -1,0 +1,114 @@
+---
+title: Wiz Issues
+description: >
+  Collects and processes Wiz Issues logs from the Wiz API, enabling continuous monitoring and reporting of security issues across cloud environments.
+---
+
+## Details
+This input connects to the Wiz API to fetch issues data. On first connection, it performs a complete sync of all issues. After the initial sync, it automatically switches to incremental updates, only fetching new or modified issues to optimize performance and resource usage.
+
+## Prerequisites
+Before connecting to Wiz, you need:
+- Wiz API credentials (Client ID and Client Secret)
+- Appropriate permissions to access Issues API endpoints
+- Access to view and list issues in your Wiz account
+- Find your tenant data center on the Tenant Info page in Wiz, or request it from your Wiz customer contact. e.g., "us1", "us2", "us3".
+
+## Configuration
+The following configuration defines the input parameters:
+
+NOTE: if you change the configuration of a component in a pipeline it will not reset its state. 
+For example, if you set the project filter the incremental sync will start to pull only for the desired project but you will not get a new FULL sync of all historical data for that project.
+
+#### Settings
+
+| Setting | Type | Required | Description |
+|---------|------|----------|-------------|
+| Tenant Data Center | string | Yes | The Wiz tenant data center (e.g., "us17", "eu1") |
+| Severity | Array | No | Filter issues by severity levels |
+| Status | Array | No | Filter issues by their current status |
+| Type | Array | No | Filter issues by type |
+| Framework Category | Array | No | Filter issues by framework category |
+| Stack Layer | Array | No | Filter issues by stack layer |
+| Project | Array | No | Filter issues by specific projects |
+| Has Service Ticket | boolean | No | Filter issues that have associated service tickets |
+| Has Remediation | boolean | No | Filter issues that have remediation steps |
+| Has Auto Remediation | boolean | No | Filter issues that have automatic remediation capability |
+
+#### Secrets
+
+| Secret | Type | Required | Description |
+|---------|------|----------|-------------|
+| Client ID | string | Yes | Client ID for the Wiz API authentication |
+| Client Secret | string | Yes | Client Secret for the Wiz API authentication |
+
+## API
+
+To create a Wiz Issues Connector, send a POST request:
+
+NOTE: This curl command will create new secrets. If you wish to use and existing secret you've already created you can pass the id filed instead of name, value, and description.
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v1/{org_id}/inputs' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "config": {
+    "settings": {
+      "tenant_data_center": "us17",
+      "severity": [],
+      "status": [],
+      "type": [],
+      "framework_category": [],
+      "stack_layer": [],
+      "project": [],
+      "has_service_ticket": false,
+      "has_remediation": false,
+      "has_auto_remediation": false
+    },
+    "secrets": {
+      "client_id": {
+         "name":"Wiz Client ID",
+         "description":"my wiz client ID",
+         "value":"your_client_id"
+      },
+      "client_secret": {
+         "name":"Wiz Client Secret",
+         "description":"my wiz client secret",
+         "value":"your_client_secret"
+      }
+    }
+  },
+  "description": "Wiz Issues Input",
+  "name": "wiz_issues",
+  "type": "wiz-issues"
+}'
+```
+
+## Data Collection
+The input collects the following data from Wiz Issues:
+
+- Issue details and metadata
+- Associated resources and entities
+- Security findings and vulnerabilities
+- Remediation information
+- Status and severity levels
+- Framework categories and stack layers
+- Project associations
+- Service ticket information (if available)
+
+## Filtering Options
+You can filter the collected issues using various criteria:
+
+- **Severity Levels**: Filter by issue severity
+- **Status**: Include only issues in specific states
+- **Type**: Filter by issue type
+- **Framework Categories**: Filter by security framework categories
+- **Stack Layers**: Filter by affected stack layers
+- **Projects**: Limit to specific projects
+- **Service Tickets**: Filter based on ticket association
+- **Remediation**: Filter based on remediation availability
+
+## Notes
+- The test connection functionality will alert you if your filter is too strict and no data is gathered using it.

@@ -1,0 +1,64 @@
+---
+title: CISA KEV (Known Exploited Vulnerabilities)
+description: >
+  Collects and processes CISA Known Exploited Vulnerabilities (KEV) data in a stateful manner.
+---
+
+## Details
+The CISA KEV input processes Known Exploited Vulnerabilities (KEV) data incrementally, ensuring that you always receive new vulnerability entries without duplicates. The input maintains state between runs, tracking which vulnerabilities have been processed to guarantee:
+
+- No duplicate vulnerability records unless there has been an update to an existing record. You will get the new updated record.
+- All new vulnerabilities are captured
+- Recovery from interruptions without data loss or duplicate data
+
+## Prerequisites
+The CISA KEV connector does not require any credentials, making it a straightforward plug-and-play connector.
+
+## Configuration
+The following configuration defines the input parameters. Each field's specifications, such as type, requirements, and descriptions, are detailed below.
+
+#### Settings
+None.
+
+#### Secrets
+None.
+
+## API
+
+To send a `POST` request to create this CISA KEV Connector:
+
+```bash
+curl -X 'POST' \
+  '{base_url}/api/v2/{org_id}/inputs' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "config": {
+    "secrets": {},
+    "settings": {}
+  },
+  "description": "input_description",
+  "name": "input_name",
+  "promise_id": "",
+  "type": "cisa-kev"
+}'  
+```
+
+## Custom Schema Handling
+
+If the source data doesn't align with any of the [OpenSecurityControlFramework (OSCF) schemas](https://github.com/ocsf), you can create a custom transformation using our JQ transform pipeline. For example:
+
+```jq
+{
+  metadata: {
+    schema_version: "1.0.0",
+    custom_framework: "my_framework"
+  },
+  controls: .[]
+}
+```
+
+For more information on JQ and how to write your own JQ transformations see the JQ docs [here](https://jqlang.github.io/jq/)
+
+If you believe this data source should be included in the standard OSCF schema set, please reach out to our team at [support@monad.com](mailto:support@monad.com). We're always looking to expand our coverage of security control frameworks based on community needs.
